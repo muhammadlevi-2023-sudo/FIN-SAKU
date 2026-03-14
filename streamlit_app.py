@@ -205,105 +205,86 @@ if not df_all.empty:
                 mime="application/pdf"
             )
    
-    with tab2:
-        st.subheader("🎯 Rekomendasi & Analisis Kelayakan KUR")
+with tab2:
+        st.subheader("🏦 Konsultasi Strategis KUR")
         
-        # --- DATA DASAR UNTUK ANALISIS ---
+        # 1. LOGIKA DASAR (Mengambil data dari variabel yang sudah ada di codinganmu)
         jml_bln = df_all['bulan'].nunique()
-        laba_bersih_terakhir = (df_curr['laba'].sum() - df_curr['prive'].sum()) if not df_curr.empty else 0
-        laba_bersih_rata2 = (df_all['laba'].sum() - df_all['prive'].sum()) / jml_bln if jml_bln > 0 else 0
         
-        # Penentuan Plafon berdasarkan Kapasitas (30% dari laba rata-rata)
-        batas_aman_cicilan = laba_bersih_rata2 * 0.3
-        
-        if laba_bersih_rata2 > 5000000:
-            produk, plafon = "KUR Mikro BRI", 50000000
-        elif laba_bersih_rata2 > 1000000:
-            produk, plafon = "KUR Super Mikro BRI", 10000000
+        if jml_bln < 3:
+            st.error(f"### 🚩 ANALISIS TERKUNCI (Data baru {jml_bln}/3 Bulan)")
+            st.info("Sistem membutuhkan minimal 3 bulan data transaksi untuk menganalisis tren usaha agar rekomendasi bank akurat.")
         else:
-            produk, plafon = "KUR Super Mikro BRI", 5000000
-
-        # --- SLIDER JANGKA WAKTU (INTERAKTIF) ---
-        tenor = st.select_slider("Pilih Jangka Waktu Pinjaman (Bulan):", options=[12, 18, 24, 36], value=12)
-        
-        # Hitung Cicilan (Bunga KUR 6% per tahun)
-        bunga_total = (plafon * 0.06 * (tenor/12))
-        cicilan_bln = (plafon + bunga_total) / tenor
-        sisa_laba = laba_bersih_terakhir - cicilan_bln
-        rasio_sisa = (sisa_laba / laba_bersih_terakhir * 100) if laba_bersih_terakhir > 0 else 0
-
-        # --- TAMPILAN STATUS ---
-        status_k = "SANGAT LAYAK (Ready to Bank)" if jml_bln >= 3 and rasio_sisa > 50 else "PERLU PENYESUAIAN"
-        st.markdown(f"""<div class="status-box {'layak' if status_k == "SANGAT LAYAK (Ready to Bank)" else 'pantau'}">
-            STATUS: {status_k}
-        </div>""", unsafe_allow_html=True)
-
-        # --- RINGKASAN ANALISIS (NARASI MANUSIAWI) ---
-        st.info(f"**Berdasarkan data keuangan Anda, berikut adalah rincian penjelasannya:**")
-
-        col_res1, col_res2, col_res3 = st.columns(3)
-        
-        with col_res1:
-            st.markdown(f"""
-            <div class="report-card">
-                <b>1. Rekomendasi Pinjaman</b><br>
-                <p style="margin-top:5px;">Produk: <b>{produk}</b></p>
-                <p>Plafon: <b>{format_rp(plafon)}</b></p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col_res2:
-            # Logika warna untuk indikator aman/bahaya
-            warna_cicilan = 'red' if cicilan_bln > batas_aman_cicilan else 'green'
-            st.markdown(f"""
-            <div class="report-card">
-                <b>2. Batas Cicilan Aman</b><br>
-                <p style="margin-top:5px;">Batas Aman: {format_rp(batas_aman_cicilan)}/bln</p>
-                <p>Cicilan Pilihan: <span style='color:{warna_cicilan}; font-weight:bold;'>{format_rp(cicilan_bln)}/bln</span></p>
-            </div>
-            """, unsafe_allow_html=True)
-                    
-        with col_res3:
-            st.markdown(f"""
-            <div class="report-card">
-                <b>3. Sisa Laba Bersih</b><br>
-                <p style="margin-top:5px;">Saldo Sisa: <b>{format_rp(sisa_laba)}</b></p>
-                <p>Rasio: <b>{rasio_sisa:.0f}%</b></p>
-                <p style='font-size:11px; color:#555; line-height:1.2;'>💡 <i>Target Bank: > 70% agar kas tetap sehat.</i></p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # --- KESIMPULAN & SARAN STRATEGIS ---
-        with st.expander("📖 BACA KESIMPULAN & SARAN ANALIS", expanded=True):
-            st.write(f"Meskipun statusnya **'{status_k}'**, simulasi {tenor} bulan ini terlihat {'agak memaksa' if rasio_sisa < 70 else 'sangat sehat'} bagi keuangan Anda.")
-            st.write("**Agar lebih mudah disetujui bank:**")
+            # Hitung rata-rata laba bersih (Laba - Prive)
+            avg_laba = (df_all['laba'].sum() - df_all['prive'].sum()) / jml_bln
             
-            if rasio_sisa < 70:
-                st.markdown(f"""
-                * **Perpanjang Jangka Waktu:** Coba geser slider ke tenor lebih lama (24 atau 36 bulan). Ini akan menurunkan cicilan bulanan mendekati angka aman {format_rp(batas_aman_cicilan)}.
-                * **Sisa Laba Meningkat:** Dengan cicilan lebih kecil, sisa laba Anda akan naik ke atas 70%, yang merupakan 'posisi manis' di mata Bank BRI.
-                """)
+            # Cek Tren Laba (Bulan terakhir vs rata-rata)
+            laba_bulan_ini = df_curr['laba'].sum() - df_curr['prive'].sum()
+            tren_status = "Meningkat 📈" if laba_bulan_ini > avg_laba else "Menurun/Stabil 📉"
+            
+            # Penentuan Produk & Plafon (Logika Bank)
+            if avg_laba > 5000000:
+                produk, plafon_rek = "KUR Mikro BRI", 50000000
+                alasan_produk = "Laba bersih Anda sangat kuat untuk menjamin plafon hingga 50 Juta."
             else:
-                st.success("Posisi keuangan Anda sudah berada di 'Posisi Manis'. Cicilan tidak mengganggu operasional harian!")
+                produk, plafon_rek = "KUR Super Mikro BRI", 10000000
+                alasan_produk = "Plafon ini paling aman untuk menjaga arus kas Anda tetap sehat."
 
-        st.write("---")
-        st.write("📋 **BERKAS UNTUK DIBAWA KE BRI:**")
-        
-        # Penjelasan sederhana mengenai berkas
-        exp1, exp2, exp3 = st.columns(3)
-        with exp1:
-            st.markdown("""**1. Identitas Pribadi**
-* **KTP & KK:** Dokumen asli sebagai bukti domisili.
-* **Mencari dimana?** Dokumen pribadi yang Anda simpan di rumah.""")
-        with exp2:
-            st.markdown("""**2. Legalitas Usaha**
-* **NIB/SKU:** Bukti sah Anda memiliki usaha.
-* **Mencari dimana?** **NIB** dibuat online di *oss.go.id*, **SKU** minta ke kantor Kelurahan setempat.""")
-        with exp3:
-            st.markdown("""**3. Data Keuangan**
-* **Laporan FIN-Saku:** Hasil cetak (PDF) dari aplikasi ini.
-* **Rekening Koran:** Riwayat uang masuk/keluar di bank.
-* **Mencari dimana?** Cetak dari aplikasi ini & minta ke Bank tempat Anda menabung.""")
+            # 2. NARASI PEMBUKA (Interaksi Konsultan)
+            st.markdown(f"""
+            <div class="white-card">
+                <h3 style="color:#002147;">💡 Hasil Analisis FinSaku untuk {nama_u}</h3>
+                <p style="color:#002147;">Berdasarkan catatan <b>{jml_bln} bulan terakhir</b>, usaha Anda berada pada tren <b>{tren_status}</b>. 
+                Dengan saldo kas saat ini sebesar <b>{format_rp(kas_realtime)}</b>, berikut adalah simulasi paling aman untuk Anda:</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 3. SLIDER JANGKA WAKTU
+            tenor = st.select_slider("Geser untuk Pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36], value=12)
+            
+            # Hitung Bunga & Pokok (KUR 6% per tahun)
+            pokok_bln = plafon_rek / tenor
+            bunga_bln = (plafon_rek * 0.06) / 12
+            total_cicilan = pokok_bln + bunga_bln
+            
+            # Batas aman 35% dari laba rata-rata
+            batas_aman = avg_laba * 0.35
+            sisa_laba_akhir = avg_laba - total_cicilan
+            rasio_sisa = (sisa_laba_akhir / avg_laba) * 100
+
+            # 4. KARTU INDIKATOR (3 KOLOM SEJAJAR)
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.markdown(f"""<div class="report-card"><b>1. Rekomendasi</b><br><small>{produk}</small><br>
+                <b style="color:#002147; font-size:18px;">{format_rp(plafon_rek)}</b></div>""", unsafe_allow_html=True)
+            with col_b:
+                warna_c = 'green' if total_cicilan <= batas_aman else 'red'
+                st.markdown(f"""<div class="report-card"><b>2. Cicilan/Bulan</b><br><small>Batas Aman: {format_rp(batas_aman)}</small><br>
+                <b style="color:{warna_c}; font-size:18px;">{format_rp(total_cicilan)}</b></div>""", unsafe_allow_html=True)
+            with col_c:
+                warna_s = 'green' if rasio_sisa >= 70 else 'orange'
+                st.markdown(f"""<div class="report-card"><b>3. Sisa Laba</b><br><small>Kesehatan Kas</small><br>
+                <b style="color:{warna_s}; font-size:18px;">{rasio_sisa:.0f}%</b></div>""", unsafe_allow_html=True)
+
+            # 5. PENJELASAN DETAIL
+            with st.expander("📖 LIHAT BEDAH ANGKA (Penjelasan Sederhana)", expanded=True):
+                st.write(f"""
+                * **Plafon {format_rp(plafon_rek)}**: {alasan_produk}
+                * **Rincian Cicilan**: Terdiri dari Pokok {format_rp(pokok_bln)} ditambah bunga subsidi bank sebesar {format_rp(bunga_bln)} per bulan.
+                * **Batas Aman**: Kami menghitung bahwa cicilan tidak boleh lebih dari 35% laba Anda agar usaha tidak 'sesak napas'.
+                * **Sisa Laba {rasio_sisa:.0f}%**: Ini adalah uang bersih yang tetap bisa Anda tabung atau putar kembali ke modal setelah membayar bank.
+                """)
+
+            # 6. KESIMPULAN AKHIR
+            st.write("---")
+            if rasio_sisa >= 70:
+                st.success(f"**KESIMPULAN:** Usaha Anda **SANGAT LAYAK**. Dengan sisa laba {rasio_sisa:.0f}%, Anda masih punya cadangan kas yang sangat aman untuk kebutuhan darurat.")
+            elif rasio_sisa >= 50:
+                st.warning(f"**KESIMPULAN:** Usaha Anda **LAYAK DENGAN CATATAN**. Cicilan ini cukup terasa. Disarankan mengambil tenor lebih panjang agar sisa laba bisa di atas 70%.")
+            else:
+                st.error("**KESIMPULAN:** **BERISIKO**. Cicilan ini memakan terlalu banyak laba Anda. Bank BRI mungkin akan menyarankan plafon yang lebih kecil atau tenor yang lebih lama.")
+            
+            # (Opsional) Berkas untuk dibawa ke BRI tetap bisa diletakkan di bawah sini
 
     with tab3:
         st.dataframe(df_all[['id', 'tgl_data', 'omzet', 'laba']])
