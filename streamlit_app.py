@@ -50,7 +50,6 @@ def clean_val(teks):
 
 # 4. SIDEBAR: PROFIL & MODAL
 df_all = pd.read_sql_query("SELECT * FROM transaksi ORDER BY id ASC", conn)
-
 with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
@@ -64,17 +63,31 @@ with st.sidebar:
     
     st.markdown(f"""
     <div style='background:#003366; padding:15px; border-radius:10px; border:1px solid #FFD700;'>
-        <p style='margin:0; font-size:12px; color:#FFD700;'>POSISI MODAL SAAT INI:</p>
+        <p style='margin:0; font-size:12px; color:#FFD700;'>SALDO KAS SAAT INI:</p>
         <h2 style='margin:0; color:white;'>{format_rp(kas_realtime)}</h2>
     </div>
     """, unsafe_allow_html=True)
 
     st.write("---")
-    st.subheader("💰 Aturan Harga & Margin")
-    hpp = st.number_input("HPP Produk", value=5000)
-    jual = st.number_input("Harga Jual", value=15000)
+    st.subheader("💰 Strategi Harga")
+    hpp = st.number_input("Harga Pokok (HPP)", value=5000)
+    jual = st.number_input("Harga Jual ke Pelanggan", value=15000)
     margin_pct = ((jual - hpp) / jual * 100) if jual > 0 else 0
-    prive_pct = st.slider("Alokasi Prive Pemilik (%)", 0, 100, 20)
+    
+    # Logika Saran Margin Sektor (Berdasarkan Rata-rata Industri UMKM)
+    saran_m = {"Kuliner": 40, "Retail/Toko": 15, "Jasa": 60, "Manufaktur": 30}
+    if margin_pct < saran_m[jenis_b]:
+        st.warning(f"💡 Info: Di bidang {jenis_b}, rata-rata margin biasanya {saran_m[jenis_b]}%. Margin Anda ({margin_pct:.0f}%) mungkin terlalu tipis.")
+    
+    st.write("---")
+    st.subheader("🏦 Alokasi Gaji Pemilik")
+    prive_pct = st.slider("Ambilan Prive/Gaji (%)", 0, 100, 20)
+    
+    # Saran Prive menurut Standar Perbankan (Agar Re-investasi Modal Sehat)
+    if prive_pct > 30:
+        st.error("🚩 Perhatian: Mengambil lebih dari 30% laba untuk pribadi bisa memperlambat pertumbuhan modal usaha Anda.")
+    else:
+        st.success("✅ Alokasi sehat untuk memperkuat modal.")
 
 # 5. DASHBOARD: PENCATATAN
 st.title(f"🚀 Dashboard Strategis: {nama_u}")
@@ -332,9 +345,30 @@ with tab2:
             st.success("💡 **TIPS DARI KONSULTAN:** Bawa dokumen asli dan fotokopi sebanyak 2 rangkap saat ke Mantri BRI (Petugas KUR).")
 
 with tab3:
-        st.dataframe(df_all[['id', 'tgl_data', 'omzet', 'laba']])
-        tid = st.number_input("ID Hapus", step=1)
-        if st.button("Hapus Data"):
-            conn.cursor().execute("DELETE FROM transaksi WHERE id=?", (tid,))
-            conn.commit()
-            st.rerun()
+        st.subheader("⚙️ Kelola Transaksi")
+        st.write("Klik pada kotak centang di sebelah kiri untuk memilih data yang ingin dihapus, lalu tekan tombol 'Hapus Data Pilihan'.")
+        
+        # Tambahkan kolom pilihan untuk hapus
+        df_edit = df_all.copy()
+        df_edit.insert(0, "Pilih", False)
+        
+        edited_df = st.data_editor(
+            df_edit,
+            column_config={"Pilih": st.column_config.CheckboxColumn(required=True)},
+            disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "omzet", "laba", "prive"],
+            hide_index=True,
+        )
+
+        selected_rows = edited_df[edited_df["Pilih"] == True]
+        
+        if not selected_rows.empty:
+            if st.button(f"🗑️ Hapus {len(selected_rows)} Data Terpilih"):
+                ids_to_delete = selected_rows['id'].tolist()
+                cur = conn.cursor()
+                cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in ids_to_delete])
+                conn.commit()
+                st.success("Data berhasil diperbarui!")
+                st.rerun()
+        else:
+            st.write("---")
+            st.caption("Gunakan tabel di atas untuk memantau kembali catatan yang sudah masuk.")
