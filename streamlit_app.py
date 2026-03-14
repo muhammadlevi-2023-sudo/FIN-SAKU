@@ -140,17 +140,86 @@ if not df.empty:
         """, unsafe_allow_html=True)
 
     with t_kur:
-        # LOGIKA KUR BERBASIS BULAN TERAKHIR
+        # LOGIKA KUR BERBASIS BULAN TERAKHIR (DATA TERBARU)
         bulan_terakhir = df['bulan'].iloc[-1]
         data_akhir = df[df['bulan'] == bulan_terakhir]
         laba_akhir = data_akhir['laba'].sum()
+        prive_akhir = data_akhir['prive'].sum()
         
-        # Jika laba akhir rugi, maka KUR tidak bisa diproses
+        # 1. PERHITUNGAN REPAYMENT CAPACITY (RPC) - STANDAR PERBANKAN
+        # Bank biasanya mematok 30% - 40% dari laba bersih untuk cicilan
+        rpc_aman = laba_akhir * 0.35 
+        
+        # 2. SIMULASI PLAFON PINJAMAN (TENOR 24 BULAN)
+        # Menghitung plafon dengan asumsi bunga KUR 6% efektif p.a
+        plafon_max = rpc_aman * 22 # Faktor pengali 22 untuk ruang bunga & biaya provisi
+        
+        st.subheader(f"🏦 Analisis Kelayakan Pinjaman ({bulan_terakhir})")
+        
+        # TAMPILAN METRIC UTAMA
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Kapasitas Cicilan/Bulan", format_rp(rpc_aman))
+        c2.metric("Saran Plafon Kredit", format_rp(plafon_max))
+        c3.metric("Laba Setelah Prive", format_rp(laba_akhir - prive_akhir))
+
+        # 3. JURNAL ANALISIS PENDAPAT & STRATEGI
+        st.markdown("### 📝 Jurnal Analisis Strategis")
+        
         if laba_akhir <= 0:
-            st.error(f"🛑 BANKABILITY: TIDAK LAYAK. Bulan {bulan_terakhir} Anda mengalami rugi. Bank tidak bisa memproses KUR jika laba negatif.")
+            st.error(f"**STATUS: TIDAK LAYAK (Negative Income)**")
+            st.markdown(f"""
+            * **Analisis:** Pendapatan bulan {bulan_terakhir} tidak mampu menutupi beban pokok (Rugi).
+            * **Resiko:** Memaksakan pinjaman saat rugi akan menggerus modal inti Anda dengan cepat.
+            * **Saran Strategi:** Fokus pada efisiensi HPP atau menaikkan volume penjualan sebelum mengajukan KUR.
+            """)
         else:
-            rpc = laba_akhir * 0.35
-            plafon = rpc * 22
-            st.subheader(f"🏦 Analisis BRI (Bulan: {bulan_terakhir})")
-            st.metric("Plafon Maksimal", format_rp(plafon))
-            st.info(f"Karena Modal Terkini Anda {format_rp(modal_sekarang)}, pinjaman ini memiliki risiko bunga {( (plafon*0.005) / modal_sekarang * 100):.1f}% terhadap modal inti.")
+            # Hitung Debt Service Coverage Ratio (DSCR) Sederhana
+            dscr = laba_akhir / rpc_aman if rpc_aman > 0 else 0
+            
+            st.success(f"**STATUS: LAYAK (Bankable)**")
+            
+            # KATEGORI SARAN PINJAMAN
+            if plafon_max > 50000000:
+                rekomendasi = "KUR Ritel (Plafon Besar)"
+                catatan = "Usaha Anda sangat sehat. Anda punya daya tawar tinggi untuk meminta bunga rendah."
+            elif plafon_max >= 10000000:
+                rekomendasi = "KUR Mikro"
+                catatan = "Angka ini ideal untuk ekspansi stok atau penambahan alat kerja ringan."
+            else:
+                rekomendasi = "KUR Super Mikro"
+                catatan = "Disarankan ambil plafon kecil dulu untuk memperkuat credit history di BRI."
+
+            st.markdown(f"""
+            <div class="white-card">
+                <p><b>Rincian Perhitungan Perbankan:</b></p>
+                <ul>
+                    <li><b>Analisis Cicilan:</b> Dengan laba {format_rp(laba_akhir)}, cicilan paling aman bagi Anda adalah <b>{format_rp(rpc_aman)}</b> per bulan. Jangan mengambil cicilan di atas angka ini agar napas usaha tidak sesak.</li>
+                    <li><b>Rekomendasi Produk:</b> {rekomendasi}</li>
+                    <li><b>Efisiensi Bunga:</b> Estimasi bunga (0.5% flat/bulan) dari plafon saran adalah <b>{format_rp(plafon_max * 0.005)}</b>. Pendapatan Anda mampu meng-cover bunga ini sebanyak <b>{laba_akhir/(plafon_max*0.005):.1f} kali lipat</b>.</li>
+                    <li><b>Strategi Kedepan:</b> {catatan}</li>
+                </ul>
+                <p style='color:blue;'><i>*Hasil ini didasarkan pada perhitungan Repayment Capacity (RPC) yang umum digunakan analis kredit BRI.</i></p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 4. BAGIAN ANALISIS PENDAPAT (GOOD/BAD INCOME)
+        st.markdown("### 📉 Analisis Kualitas Pendapatan")
+        margin_real = (laba_akhir / data_akhir['omzet'].sum() * 100) if data_akhir['omzet'].sum() > 0 else 0
+        
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if margin_real < 20:
+                st.warning(f"**Margin Rendah ({margin_real:.1f}%)**")
+                st.write("Pendapatan Anda 'melelahkan'. Omzet besar tapi laba tipis. Bank berisiko menganggap usaha Anda rentan terhadap kenaikan harga bahan baku.")
+            else:
+                st.success(f"**Margin Kuat ({margin_real:.1f}%)**")
+                st.write("Kualitas pendapatan sangat baik. Anda memiliki ruang yang cukup untuk membayar bunga bank dan tetap mencetak profit.")
+        
+        with col_b:
+            prive_ratio = (prive_akhir / laba_akhir * 100) if laba_akhir > 0 else 0
+            if prive_ratio > 50:
+                st.error(f"**Kebocoran Kas ({prive_ratio:.1f}%)**")
+                st.write("Pengambilan pribadi terlalu besar. Ini adalah 'Red Flag' bagi bank karena modal usaha terus ditarik untuk kepentingan konsumtif.")
+            else:
+                st.info(f"**Efisiensi Kas ({prive_ratio:.1f}%)**")
+                st.write("Pengaturan Prive disiplin. Sebagian besar laba kembali menjadi modal, hal ini sangat disukai oleh Mantri BRI.")
