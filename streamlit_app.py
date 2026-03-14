@@ -229,17 +229,18 @@ if not df_all.empty:
                 else:
                     produk, plafon_rek = "KUR Super Mikro BRI", 10000000
                     alasan_produk = "Plafon ini paling aman untuk menjaga arus kas Anda tetap sehat."
-                # 2. NARASI PEMBUKA (DIBUNGKUS KOTAK PUTIH AGAR TIDAK NYARU)
-                        st.markdown(f"""
-                        <div class="white-card">
-                            <h3 style="color:#002147; margin-bottom:10px;">💡 Hasil Analisis FinSaku untuk {nama_u}</h3>
-                            <p style="color:#002147; font-size:15px; line-height:1.6;">
-                                Berdasarkan catatan <b>{jml_bln} bulan terakhir</b>, usaha Anda berada pada tren <b>{tren_status}</b>. 
-                                Dengan saldo kas saat ini sebesar <b>{format_rp(kas_realtime)}</b>, berikut adalah simulasi paling aman yang disarankan oleh sistem kami:
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
-              
+               
+                # 2. NARASI PEMBUKA
+                            st.markdown(f"""
+                            <div class="white-card">
+                                <h3 style="color:#002147; margin-bottom:10px;">💡 Hasil Analisis FinSaku untuk {nama_u}</h3>
+                                <p style="color:#002147; font-size:15px; line-height:1.6;">
+                                    Berdasarkan catatan <b>{jml_bln} bulan terakhir</b>, usaha Anda berada pada tren <b>{tren_status}</b>. 
+                                    Dengan saldo kas saat ini sebesar <b>{format_rp(kas_realtime)}</b>, berikut adalah simulasi paling aman yang disarankan oleh sistem kami:
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)   
+                    
                 # 3. SLIDER JANGKA WAKTU
                 tenor = st.select_slider("Geser untuk Pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36], value=12)
                 
