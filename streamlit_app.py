@@ -10,12 +10,11 @@ st.set_page_config(page_title="FIN-Saku | UMKM Bankable Dashboard", layout="wide
 
 # Database Management (Auto-Migration)
 def get_connection():
-    conn = sqlite3.connect('finsaku_final_v15.db', check_same_thread=False)
+    conn = sqlite3.connect('finsaku_master_v16.db', check_same_thread=False)
     c = conn.cursor()
-    # Pastikan tabel memiliki kolom yang lengkap sesuai kode terbaru
     c.execute('''CREATE TABLE IF NOT EXISTS transaksi
-                 (id INTEGER PRIMARY KEY, periode_bln TEXT, periode_thn TEXT, 
-                  omzet REAL, laba REAL, prive REAL, hpp REAL, harga_jual REAL)''')
+                 (id INTEGER PRIMARY KEY, tanggal TEXT, bulan TEXT, tahun TEXT, 
+                  tipe_catat TEXT, omzet REAL, laba REAL, prive REAL, hpp REAL, harga_jual REAL)''')
     conn.commit()
     return conn
 
@@ -24,32 +23,23 @@ conn = get_connection()
 # 2. UI STYLING (UNAIR NAVY & GOLD)
 st.markdown("""
 <style>
-    /* Base Colors */
     .stApp { background-color: #002147; color: #FFFFFF; }
-    section[data-testid="stSidebar"] { 
-        background-color: #001a35 !important; 
-        border-right: 3px solid #FFD700; 
-    }
+    section[data-testid="stSidebar"] { background-color: #001a35 !important; border-right: 3px solid #FFD700; }
+    h1, h2, h3, p, label { color: #FFFFFF !important; }
+    .gold-label { color: #FFD700 !important; font-weight: bold; }
     
-    /* Typography */
-    h1, h2, h3, p, label, .stMarkdown { color: #FFFFFF !important; }
-    .gold-label { color: #FFD700 !important; font-weight: bold; font-size: 1.1rem; }
-    
-    /* Modern Card */
-    .report-card {
+    .modern-card {
         background: #FFFFFF; padding: 25px; border-radius: 15px;
         border-top: 8px solid #FFD700; color: #002147 !important;
         box-shadow: 0 10px 25px rgba(0,0,0,0.4); margin-bottom: 20px;
     }
-    .report-card span, .report-card b, .report-card h3 { color: #002147 !important; }
+    .modern-card span, .modern-card b, .modern-card h3 { color: #002147 !important; }
 
-    /* Button Styling */
     .stButton>button {
         background: linear-gradient(135deg, #FFD700 0%, #B8860B 100%) !important;
         color: #002147 !important; font-weight: bold; border-radius: 8px;
-        border: none; height: 50px; width: 100%; transition: 0.3s;
+        height: 50px; width: 100%; border: none;
     }
-    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(255,215,0,0.3); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -60,7 +50,7 @@ def format_rp(angka):
 def clean_val(teks):
     return int("".join(filter(str.isdigit, str(teks)))) if teks else 0
 
-# 4. SIDEBAR: PROFIL & KAS REALTIME
+# 4. SIDEBAR: PROFIL & INTERAKTIF MARGIN/PRIVE
 df_all = pd.read_sql_query("SELECT * FROM transaksi", conn)
 
 with st.sidebar:
@@ -68,129 +58,168 @@ with st.sidebar:
     st.write("---")
     
     nama_usaha = st.text_input("Nama Usaha", "UMKM Maju Bersama")
-    kas_awal = st.number_input("Modal Kas Awal (Rp)", value=7000000, step=100000)
-    st.markdown(f"Tercatat: <span class='gold-label'>{format_rp(kas_awal)}</span>", unsafe_allow_html=True)
+    kas_awal = st.number_input("Modal Kas Awal (Rp)", value=7000000)
     
-    # Perhitungan Kas Realtime yang Akurat
+    # Real-time Cash Logic
     untung_bersih = (df_all['laba'].sum() - df_all['prive'].sum()) if not df_all.empty else 0
     kas_sekarang = kas_awal + untung_bersih
     
     st.markdown(f"""
-    <div style='background:#003366; padding:15px; border-radius:10px; border-left:5px solid #FFD700; margin-top:20px;'>
+    <div style='background:#003366; padding:15px; border-radius:10px; border-left:5px solid #FFD700;'>
         <p style='margin:0; font-size:12px; color:#FFD700;'>KAS SAAT INI (REALTIME)</p>
         <h2 style='margin:0;'>{format_rp(kas_sekarang)}</h2>
     </div>
     """, unsafe_allow_html=True)
     
     st.write("---")
-    st.subheader("Aturan Harga & Margin")
+    st.subheader("⚙️ Aturan Harga & Margin")
     val_hpp = st.number_input("HPP Produk", value=5000)
     val_jual = st.number_input("Harga Jual", value=15000)
+    
     margin = ((val_jual - val_hpp) / val_jual * 100) if val_jual > 0 else 0
     st.markdown(f"Margin: <span class='gold-label'>{margin:.1f}%</span>", unsafe_allow_html=True)
     
-    prive_pct = st.slider("Alokasi Prive Pemilik (%)", 0, 100, 30)
+    # Peringatan Margin (Interaktif)
+    if margin < 30:
+        st.error("⚠️ Margin < 30%! Bank BRI biasanya menolak usaha dengan profitabilitas rendah.")
+    elif margin >= 50:
+        st.success("✅ Margin sangat sehat untuk ekspansi!")
 
-# 5. DASHBOARD: PENCATATAN BULANAN
-st.title(f"🚀 Dashboard Strategis: {nama_usaha}")
+    st.write("---")
+    prive_pct = st.slider("Alokasi Prive Pemilik (%)", 0, 100, 30)
+    
+    # Peringatan Prive (Interaktif)
+    if prive_pct > 50:
+        st.error("🚨 BAHAYA: Prive > 50% laba akan menguras modal kerja. Bank sangat tidak menyukai ini!")
+    elif prive_pct <= 20:
+        st.info("💡 Prive rendah mempercepat pertumbuhan modal usaha.")
+
+# 5. DASHBOARD: PENCATATAN MODERN (HARIAN/MINGGUAN/BULANAN)
+st.title(f"🚀 Kendali Bisnis: {nama_usaha}")
 
 with st.container():
-    st.subheader("📝 Input Transaksi Periode")
-    c1, c2, c3 = st.columns([2, 2, 1])
+    st.subheader("📝 Pencatatan Transaksi")
+    col_tgl, col_omz, col_btn = st.columns([2, 2, 1])
     
-    with c1:
-        # Picker Bulan & Tahun
-        list_bln = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", 
-                    "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-        sel_bln = st.selectbox("Pilih Bulan", list_bln, index=datetime.now().month - 1)
-        sel_thn = st.selectbox("Pilih Tahun", ["2024", "2025", "2026", "2027"])
+    with col_tgl:
+        tipe_catat = st.selectbox("Jenis Pencatatan", ["Harian", "Mingguan", "Bulanan"])
+        list_bln = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
         
-    with c2:
-        omzet_raw = st.text_input("Total Omzet Periode Ini (Angka Saja)")
+        c_bln, c_thn = st.columns(2)
+        sel_bln = c_bln.selectbox("Bulan", list_bln, index=datetime.now().month - 1)
+        sel_thn = c_thn.selectbox("Tahun", ["2024", "2025", "2026", "2027"], index=2)
+        
+    with col_omz:
+        omzet_raw = st.text_input(f"Total Omzet ({tipe_catat})")
         omzet_in = clean_val(omzet_raw)
         st.markdown(f"Tercatat: <span class='gold-label'>{format_rp(omzet_in)}</span>", unsafe_allow_html=True)
         
-    with c3:
+    with col_btn:
         st.write("##")
-        if st.button("SIMPAN DATA"):
-            laba_in = omzet_in * (margin/100)
-            prive_in = laba_in * (prive_pct/100)
+        if st.button("SIMPAN"):
+            l_in = omzet_in * (margin/100)
+            p_in = l_in * (prive_pct/100)
+            tgl_full = f"{datetime.now().day} {sel_bln} {sel_thn}" if tipe_catat == "Harian" else f"{sel_bln} {sel_thn}"
+            
             cur = conn.cursor()
-            cur.execute("INSERT INTO transaksi (periode_bln, periode_thn, omzet, laba, prive, hpp, harga_jual) VALUES (?,?,?,?,?,?,?)",
-                      (sel_bln, sel_thn, omzet_in, laba_in, prive_in, val_hpp, val_jual))
+            cur.execute("INSERT INTO transaksi (tanggal, bulan, tahun, tipe_catat, omzet, laba, prive, hpp, harga_jual) VALUES (?,?,?,?,?,?,?,?,?)",
+                      (tgl_full, sel_bln, sel_thn, tipe_catat, omzet_in, l_in, p_in, val_hpp, val_jual))
             conn.commit()
-            st.toast("Transaksi Berhasil Dicatat!")
+            st.toast("Data Berhasil Diamankan!", icon="✅")
             st.rerun()
 
-# 6. TABEL LAPORAN & ANALISIS KUR
+# 6. LAPORAN, KUR, & PDF
 if not df_all.empty:
     st.write("---")
     t1, t2, t3 = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI", "⚙️ REVISI DATA"])
     
     with t1:
-        f_bln = st.select_slider("Lihat Laporan Bulan:", options=list_bln)
-        df_view = df_all[df_all['periode_bln'] == f_bln]
+        f_bln = st.selectbox("Pilih Periode Laporan:", df_all['bulan'].unique())
+        df_v = df_all[df_all['bulan'] == f_bln]
         
-        if not df_view.empty:
-            o_t = df_view['omzet'].sum(); l_t = df_view['laba'].sum(); p_t = df_view['prive'].sum()
+        o_t = df_v['omzet'].sum(); l_t = df_v['laba'].sum(); p_t = df_v['prive'].sum()
+        laba_bersih = l_t - p_t
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.markdown(f"""
+            <div class="modern-card">
+                <h3 style="text-align:center;">LABA RUGI - {f_bln.upper()}</h3>
+                <hr>
+                <div style="display:flex; justify-content:space-between;"><span>Omzet</span><b>{format_rp(o_t)}</b></div>
+                <div style="display:flex; justify-content:space-between;"><span>Laba Usaha</span><b>{format_rp(l_t)}</b></div>
+                <div style="display:flex; justify-content:space-between; color:red;"><span>Prive Pemilik</span><b>-{format_rp(p_t)}</b></div>
+                <hr>
+                <div style="display:flex; justify-content:space-between;"><b>SISA LABA</b><b style="color:green;">{format_rp(laba_bersih)}</b></div>
+            </div>
+            """, unsafe_allow_html=True)
             
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown(f"""
-                <div class="report-card">
-                    <h3>LABA RUGI - {f_bln.upper()}</h3>
-                    <hr>
-                    <div style="display:flex; justify-content:space-between;"><span>Omzet</span><b>{format_rp(o_t)}</b></div>
-                    <div style="display:flex; justify-content:space-between;"><span>Laba Kotor</span><b>{format_rp(l_t)}</b></div>
-                    <div style="display:flex; justify-content:space-between; color:red;"><span>Prive</span><b>-{format_rp(p_t)}</b></div>
-                    <hr>
-                    <div style="display:flex; justify-content:space-between;"><b>LABA BERSIH</b><b style="color:green;">{format_rp(l_t - p_t)}</b></div>
-                </div>
-                """, unsafe_allow_html=True)
-            with col_b:
-                st.markdown(f"""
-                <div class="report-card">
-                    <h3>POSISI KAS - {f_bln.upper()}</h3>
-                    <hr>
-                    <p>Kas Awal: <b>{format_rp(kas_sekarang - (l_t - p_t))}</b></p>
-                    <p>Penambahan Kas: <b>{format_rp(l_t - p_t)}</b></p>
-                    <hr>
-                    <p>Total Kas Akhir:</p>
-                    <h2 style="color:#002147;">{format_rp(kas_sekarang)}</h2>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.warning(f"Data untuk bulan {f_bln} tidak ditemukan.")
+            # --- PDF GENERATOR ---
+            if st.button("📥 DOWNLOAD PDF LAPORAN"):
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(190, 10, f"LAPORAN KEUANGAN: {nama_usaha.upper()}", 0, 1, 'C')
+                pdf.set_font("Arial", '', 10)
+                pdf.cell(190, 7, f"Periode: {f_bln} {sel_thn}", 0, 1, 'C')
+                pdf.ln(10)
+                
+                # Header Table
+                pdf.set_fill_color(0, 33, 71) # Navy
+                pdf.set_text_color(255, 255, 255) # White
+                pdf.cell(100, 10, "KOMPONEN", 1, 0, 'C', True)
+                pdf.cell(90, 10, "NILAI", 1, 1, 'C', True)
+                
+                # Content Table
+                pdf.set_text_color(0, 0, 0)
+                pdf.cell(100, 10, "Total Omzet", 1); pdf.cell(90, 10, format_rp(o_t), 1, 1, 'R')
+                pdf.cell(100, 10, "Laba Operasional", 1); pdf.cell(90, 10, format_rp(l_t), 1, 1, 'R')
+                pdf.cell(100, 10, "Prive (Gaji Pemilik)", 1); pdf.cell(90, 10, f"-{format_rp(p_t)}", 1, 1, 'R')
+                pdf.set_font("Arial", 'B', 10)
+                pdf.cell(100, 10, "TOTAL KAS AKHIR", 1); pdf.cell(90, 10, format_rp(kas_sekarang), 1, 1, 'R')
+                
+                st.download_button("Konfirmasi Download PDF", data=pdf.output(dest='S').encode('latin-1'), file_name=f"Laporan_{nama_usaha}_{f_bln}.pdf")
+
+        with col_b:
+            st.markdown(f"""
+            <div class="modern-card">
+                <h3 style="text-align:center;">STRUKTUR MODAL</h3>
+                <hr>
+                <p>Kas Awal: <b>{format_rp(kas_awal)}</b></p>
+                <p>Pertumbuhan Laba: <b>{format_rp(df_all['laba'].sum() - df_all['prive'].sum())}</b></p>
+                <hr>
+                <p>Total Modal Saat Ini:</p>
+                <h2 style="color:#002147;">{format_rp(kas_sekarang)}</h2>
+            </div>
+            """, unsafe_allow_html=True)
 
     with t2:
-        st.subheader("🏦 Skor Kredit & Rekomendasi KUR")
-        histori = df_all['periode_bln'].nunique()
+        st.subheader("🏦 Analisis KUR Bank BRI")
+        histori = df_all['bulan'].nunique()
         
-        # Logika KUR BRI Super Mikro vs Mikro
-        if kas_sekarang < 15000000:
-            produk = "KUR SUPER MIKRO BRI"; plafon = "Maks Rp 10.000.000"
-        else:
-            produk = "KUR MIKRO BRI"; plafon = "Rp 10.000.000 - Rp 50.000.000"
-            
+        # Logika Plafon Berdasarkan Kas
+        plafon_saran = 10000000 if kas_sekarang < 20000000 else 50000000
+        status_k = "LAYAK" if histori >= 3 and laba_bersih > (plafon_saran*0.05) else "BUTUH PENYESUAIAN"
+        
         st.markdown(f"""
-        <div class="report-card">
-            <h4>Rekomendasi Produk: <span style="color:#002147;">{produk}</span></h4>
-            <p>Potensi Plafon: <b>{plafon}</b></p>
-            <p>Status Kelayakan: <b>{"✅ LAYAK" if histori >= 3 else "⚠️ BUTUH DATA 3 BULAN"}</b></p>
+        <div class="modern-card">
+            <h4>Hasil Analisis Credit Scoring</h4>
+            <p>Rekomendasi Produk: <b>KUR Mikro BRI</b></p>
+            <p>Plafon Disarankan: <b>{format_rp(plafon_saran)}</b></p>
+            <p>Status: <b style="color:{'green' if status_k == 'LAYAK' else 'red'};">{status_k}</b></p>
             <hr>
-            <b>Analisis Cashflow:</b> Pendapatan anda konsisten di angka {format_rp(df_all['omzet'].mean())}. 
-            Disarankan mengambil cicilan tidak lebih dari {format_rp(df_all['laba'].mean() * 0.3)} / bulan.
+            <b>Saran Strategis:</b><br>
+            {"Pertahankan omzet stabil selama 3 bulan ke depan agar skor kredit sempurna." if histori < 3 else "Arus kas Anda sudah memenuhi syarat administrasi Bank BRI."}
         </div>
         """, unsafe_allow_html=True)
 
     with t3:
-        st.subheader("Koreksi Transaksi")
-        st.dataframe(df_all[['id', 'periode_bln', 'periode_thn', 'omzet', 'laba']], use_container_width=True)
-        target_id = st.number_input("Masukkan ID Transaksi yang ingin dihapus", step=1)
-        if st.button("HAPUS DATA"):
-            c.execute("DELETE FROM transaksi WHERE id=?", (target_id,))
+        st.subheader("⚙️ Revisi Data")
+        st.dataframe(df_all[['id', 'tanggal', 'tipe_catat', 'omzet', 'laba']], use_container_width=True)
+        t_id = st.number_input("Masukkan ID untuk dihapus", step=1)
+        if st.button("🗑️ HAPUS PERMANEN"):
+            c.execute("DELETE FROM transaksi WHERE id=?", (t_id,))
             conn.commit()
             st.rerun()
-
 else:
-    st.info("Silakan masukkan data omzet bulanan Anda untuk memulai analisis.")
+    st.info("Input transaksi pertama Anda untuk melihat laporan interaktif.")
