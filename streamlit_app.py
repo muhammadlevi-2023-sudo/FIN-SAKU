@@ -270,27 +270,36 @@ with st.expander("🛠️ PUSAT REVISI DATA (Edit atau Hapus Transaksi)"):
                 conn.commit()
                 st.success(f"ID {id_target} Berhasil Diperbarui!")
                 st.rerun()
-                
-        with col_btn2:
-            if st.button("🗑️ HAPUS TRANSAKSI INI"):
-                c.execute(f"DELETE FROM transaksi WHERE id = {id_target}")
-                conn.commit()
-                st.warning(f"ID {id_target} Telah Dihapus!")
-                st.rerun()
-              with st.container():
-    # Ini untuk mengisi area putih yang kosong itu
+              # --- PENGISI AREA KOSONG: DASHBOARD ANALISIS CEPAT ---
+with st.container():
     st.markdown('<div class="white-card">', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Cicilan Aman (RPC)", format_rp(rpc_aman))
-    with col2:
-        st.metric("Kontinuitas Data", "98%", help="Tingkat kedisipinan input harian")
-    with col3:
-        # Menunjukkan pertumbuhan modal dari awal sampai sekarang
-        pertumbuhan = ((modal_sekarang - modal_awal) / modal_awal * 100) if modal_awal > 0 else 0
-        st.metric("Kesehatan Modal", f"{pertumbuhan:.1f}%", delta=f"{pertumbuhan:.1f}%")
-    st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.write("Belum ada data untuk direvisi.")
+    
+    # Header area putih
+    st.markdown("### 🔍 Ringkasan Kelayakan Kredit")
+    
+    # Membuat 3 Kolom Metrik di dalam area putih
+    m1, m2, m3 = st.columns(3)
+    
+    with m1:
+        # Menghitung Kapasitas Cicilan (RPC)
+        st.write("**Cicilan Aman (RPC):**")
+        st.subheader(format_rp(rpc_aman))
+        st.caption("35% dari Laba Bersih terakhir")
 
-# --- SELESAI BAGIAN TAMBAHAN ---
+    with m2:
+        # Menghitung Skor Kontinuitas (Berapa bulan sudah input data)
+        bulan_aktif = df['bulan'].nunique()
+        st.write("**Kontinuitas:**")
+        st.subheader(f"{bulan_aktif} Bulan")
+        st.progress(min(bulan_aktif / 6, 1.0)) # Target 6 bulan untuk KUR
+        st.caption("Target Bank: Min. 6 Bulan")
+
+    with m3:
+        # Rasio Kesehatan Modal
+        rasio_modal = ((modal_sekarang - modal_awal) / modal_awal * 100) if modal_awal > 0 else 0
+        st.write("**Kesehatan Modal:**")
+        st.subheader(f"{rasio_modal:.1f}%")
+        st.caption("Pertumbuhan dari Modal Awal")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+# --- SELESAI PENGISI AREA ---
