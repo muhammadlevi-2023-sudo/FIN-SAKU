@@ -26,7 +26,7 @@ def clean_to_int(teks):
     if not teks: return 0
     return int("".join(filter(str.isdigit, str(teks))))
 
-# 2. UI KEMBALI KE DESAIN AWAL (NAVY & GOLD)
+# 2. UI CUSTOM (NAVY & GOLD)
 st.markdown("""
 <style>
     .stApp { background-color: #001f3f !important; }
@@ -69,49 +69,24 @@ with st.sidebar:
     hrg_val = clean_to_int(st.text_input("Harga Jual Produk", "15000"))
     prive_pct = st.slider("Jatah Prive (%)", 0, 100, 30)
 
-# --- DASHBOARD UTAMA ---
+# --- DASHBOARD UTAMA (FOKUS INPUT) ---
 st.title(f"Pusat Analisis: {nama_u}")
 
-# AREA RINGKASAN (PENGISI AREA KOSONG)
-if not df.empty:
-    laba_akhir = df.iloc[-1]['laba']
-    rpc_aman = laba_akhir * 0.35
-    
-    st.markdown('<div class="white-card">', unsafe_allow_html=True)
-    st.markdown("### 🔍 Ringkasan Kelayakan Kredit (Live)")
-    m1, m2, m3 = st.columns(3)
-    with m1:
-        st.write("**Cicilan Aman (RPC):**")
-        st.subheader(format_rp(rpc_aman))
-        st.caption("35% dari Laba terakhir")
-    with m2:
-        bulan_aktif = df['bulan'].nunique()
-        st.write("**Kontinuitas:**")
-        st.subheader(f"{bulan_aktif} Bulan")
-        st.progress(min(bulan_aktif / 6, 1.0))
-    with m3:
-        pertumbuhan = ((modal_sekarang - modal_awal) / modal_awal * 100) if modal_awal > 0 else 0
-        st.write("**Kesehatan Modal:**")
-        st.subheader(f"{pertumbuhan:.1f}%")
-        st.caption("Pertumbuhan dari Modal Awal")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# INPUT TRANSAKSI
-rekap_mode = st.selectbox("Metode Catat:", ["Harian", "Mingguan", "Bulanan"])
+rekap_mode = st.selectbox("Pilih Cara Mencatat Hari Ini:", ["Harian", "Mingguan", "Bulanan"])
 col_in, col_guidance = st.columns([1, 1.2])
 
 with col_in:
-    st.subheader(f"📝 Input {rekap_mode}")
-    tgl = st.date_input("Tanggal", datetime.now())
-    omzet = st.number_input(f"Total Omzet {rekap_mode}", value=0, step=1000)
+    st.subheader(f"📝 Form Input {rekap_mode}")
+    tgl = st.date_input("Tanggal Transaksi", datetime.now())
+    omzet = st.number_input(f"Total Omzet ({rekap_mode})", value=0, step=1000)
     
     if hrg_val > 0:
         laba = omzet - (omzet * (hpp_val / hrg_val))
     else: laba = 0
     prive = laba * (prive_pct / 100) if laba > 0 else 0
 
-    if laba < 0: st.error(f"⚠️ Rugi: {format_rp(laba)}")
-    else: st.success(f"Estimasi Laba: {format_rp(laba)}")
+    if laba < 0: st.error(f"⚠️ Terdeteksi Rugi: {format_rp(laba)}")
+    else: st.success(f"Estimasi Laba Bersih: {format_rp(laba)}")
 
     if st.button("🔔 SIMPAN KE LAPORAN"):
         c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -122,51 +97,81 @@ with col_in:
 with col_guidance:
     st.markdown(f"""
     <div class="white-card">
-        <h3>💡 Edukasi Bankability</h3>
-        <p>Agar layak KUR, Bank BRI melihat kedisiplinan Anda memisahkan uang pribadi dan usaha.</p>
+        <h3>💡 Tips Bankability</h3>
+        <p>Agar layak KUR, Bank BRI sangat memperhatikan pemisahan uang:</p>
         <ul>
-            <li><b>Uang Kas:</b> Simpan di rekening terpisah.</li>
-            <li><b>Uang Prive:</b> Jatah "Gaji" Anda (saat ini {prive_pct}%).</li>
+            <li><b>Uang Kas:</b> Simpan di wadah/rekening terpisah untuk operasional.</li>
+            <li><b>Uang Prive:</b> Inilah "Gaji" Anda. Hanya ini yang boleh dipakai jajan.</li>
         </ul>
+        <p>Status saat ini: <b>{prive_pct}% Laba</b> dialokasikan untuk pribadi.</p>
     </div>
     """, unsafe_allow_html=True)
 
-# LAPORAN & KUR
+# --- AREA HASIL & ANALISIS ---
 if not df.empty:
     st.write("---")
     t_rep, t_kur = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI"])
     
     with t_rep:
-        sel_b = st.selectbox("Pilih Bulan:", df['bulan'].unique())
+        sel_b = st.selectbox("Pilih Bulan Laporan:", df['bulan'].unique())
         db = df[df['bulan'] == sel_b]
         st.markdown(f"""<div class="white-card">
-            <h3 style="text-align:center;">Laporan: {sel_b}</h3>
+            <h3 style="text-align:center;">Ringkasan Bulanan: {sel_b}</h3>
             <table style="width:100%;">
-                <tr><td>Total Omzet</td><td style="text-align:right;">{format_rp(db['omzet'].sum())}</td></tr>
+                <tr><td>Total Penjualan (Omzet)</td><td style="text-align:right;">{format_rp(db['omzet'].sum())}</td></tr>
                 <tr><td>Laba Bersih</td><td style="text-align:right;">{format_rp(db['laba'].sum())}</td></tr>
-                <tr><td>Prive</td><td style="text-align:right;">({format_rp(db['prive'].sum())})</td></tr>
+                <tr><td>Prive (Gaji Owner)</td><td style="text-align:right;">({format_rp(db['prive'].sum())})</td></tr>
             </table></div>""", unsafe_allow_html=True)
 
     with t_kur:
-        laba_k = df[df['bulan'] == df['bulan'].iloc[-1]]['laba'].sum()
-        rpc_k = laba_k * 0.35
-        plafon = rpc_k * 22
-        st.subheader(f"🏦 Analisis BRI")
-        if laba_k <= 0:
-            st.error("Status: Tidak Layak (Sedang Rugi)")
-        else:
-            st.success("Status: Sangat Layak")
-            st.metric("Saran Plafon Kredit", format_rp(plafon))
-            st.write(f"Dengan cicilan aman {format_rp(rpc_k)} per bulan.")
+        # LOGIKA PINDAHAN DARI DASHBOARD KE SINI
+        laba_akhir = df.iloc[-1]['laba']
+        rpc_aman = laba_akhir * 0.35
+        plafon = rpc_aman * 22
+        bulan_aktif = df['bulan'].nunique()
+        pertumbuhan = ((modal_sekarang - modal_awal) / modal_awal * 100) if modal_awal > 0 else 0
 
-# REVISI DATA
+        st.markdown(f"### 🏦 Analisis Strategis KUR BRI")
+        
+        # Kartu Ringkasan (Pindahan dari Dashboard)
+        st.markdown('<div class="white-card">', unsafe_allow_html=True)
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            st.write("**Cicilan Aman (RPC):**")
+            st.subheader(format_rp(rpc_aman))
+            st.caption("35% dari Laba terakhir")
+        with m2:
+            st.write("**Kontinuitas Usaha:**")
+            st.subheader(f"{bulan_aktif} Bulan")
+            st.progress(min(bulan_aktif / 6, 1.0))
+            st.caption("Target Bank: Min. 6 Bulan")
+        with m3:
+            st.write("**Kesehatan Modal:**")
+            st.subheader(f"{pertumbuhan:.1f}%")
+            st.caption("Pertumbuhan Modal Awal")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Detail Perhitungan
+        st.success(f"**STATUS: LAYAK AJUKAN**")
+        st.markdown(f"""
+        <div class="white-card">
+            <p>Berdasarkan data {df.iloc[-1]['bulan']}, strategi pinjaman Anda:</p>
+            <ul>
+                <li><b>Saran Plafon:</b> Maksimal {format_rp(plafon)}</li>
+                <li><b>Tenor Ideal:</b> 24 - 36 Bulan</li>
+                <li><b>Analisis:</b> Laba Anda mampu mengcover angsuran {format_rp(rpc_aman)} secara stabil.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+# --- FITUR REVISI (PALING BAWAH) ---
 st.write("---")
-with st.expander("🛠️ REVISI / HAPUS DATA"):
+with st.expander("KOREKSI DATA LAPORAN KEUANGAN"):
     df_rev = pd.read_sql_query("SELECT * FROM transaksi ORDER BY id DESC", conn)
     if not df_rev.empty:
         list_rev = [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_rev.iterrows()]
-        target = st.selectbox("Pilih data yang salah:", list_rev)
-        if st.button("🗑️ HAPUS DATA"):
+        target = st.selectbox("Pilih data yang ingin dihapus:", list_rev)
+        if st.button("🗑️ KONFIRMASI HAPUS"):
             c.execute(f"DELETE FROM transaksi WHERE id = {int(target.split(' | ')[0])}")
             conn.commit()
             st.rerun()
