@@ -135,62 +135,98 @@ if not df.empty:
                         <td>MODAL AKHIR (KAS)</td><td style="text-align:right;">{format_rp(modal_akhir_bln)}</td>
                     </tr>
                 </table></div>""", unsafe_allow_html=True)
-
-    with tab_kur:
-        st.subheader(f"🏦 Analisis Kelayakan KUR BRI ({sel_b})")
+with tab_kur:
+        st.markdown(f"### 📑 Konsultasi Pinjaman: {sel_b}")
         
-        if modal_akhir_bln < 5000000 or laba_bln <= 0:
-            st.error("### ❌ STATUS: BELUM LAYAK PENGAJUAN")
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown(f"""<div class="white-card" style="border-left: 8px solid #ff4b4b;">
-                    <h4>Kenapa Belum Layak?</h4>
-                    <ul>
-                        <li><b>Modal Akhir:</b> {format_rp(modal_akhir_bln)} (BRI Min. 5jt)</li>
-                        <li><b>Kesehatan Laba:</b> {'Rugi/Nol' if laba_bln <= 0 else 'Oke'}</li>
-                    </ul>
-                </div>""", unsafe_allow_html=True)
-            with col_b:
-                st.markdown(f"""<div class="white-card"><h4>Solusi Perbaikan:</h4>
-                    <p>Kurangi pengambilan <b>Prive</b> dan pastikan harga jual meng-cover biaya HPP agar kas bulanan tumbuh.</p></div>""", unsafe_allow_html=True)
-        else:
-            if modal_akhir_bln < 15000000:
-                produk, plafon, warna_lv = "KUR Super Mikro", 10000000, "#00c8ff"
-            elif modal_akhir_bln < 50000000:
-                produk, plafon, warna_lv = "KUR Mikro", 50000000, "#00ff88"
-            else:
-                produk, plafon, warna_lv = "KUR Kecil", 100000000, "#FFD700"
-
-            st.success(f"### ✅ STATUS: LAYAK (Level: {produk})")
-            tenor = st.select_slider("Pilih Tenor (Bulan):", options=[12, 18, 24, 36], value=12)
+        # --- LOGIKA KONSULTAN ---
+        rasio_laba_cicilan = 0.35 # Batas aman cicilan adalah 35% dari laba
+        kemampuan_bayar = laba_bln * rasio_laba_cicilan
+        
+        # Logika Penentuan Kelayakan
+        if laba_bln <= 0:
+            st.error("### 🚩 Hasil Konsultasi: JANGAN BERHUTANG DULU")
+            st.markdown(f"""
+            <div class="white-card" style="border-left: 8px solid red;">
+                <h4>Analisis Konsultan:</h4>
+                <p>Bulan ini usaha Anda sedang <b>merugi</b>. Mengambil pinjaman saat rugi sangat berbahaya karena bunga bank akan mempercepat modal Anda habis.</p>
+                <hr>
+                <b>Apa yang harus Anda tingkatkan?</b>
+                <ul>
+                    <li>Fokus pada efisiensi biaya HPP sebelum menambah utang.</li>
+                    <li>Pastikan operasional sudah positif (untung) minimal 3 bulan berturut-turut.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
             
-            total_setoran = (plafon / tenor) + ((plafon * 0.06) / 12)
+        elif modal_akhir_bln < 5000000:
+            st.warning("### 🚩 Hasil Konsultasi: PERKUAT MODAL INTERNAL")
+            st.markdown(f"""
+            <div class="white-card" style="border-left: 8px solid orange;">
+                <h4>Analisis Konsultan:</h4>
+                <p>Uang Kas (Modal Akhir) Anda hanya <b>{format_rp(modal_akhir_bln)}</b>. Bank BRI mensyaratkan minimal 5 juta untuk menjaga likuiditas.</p>
+                <hr>
+                <b>Saran Strategis:</b>
+                <ul>
+                    <li><b>Stop Prive:</b> Jangan ambil uang jajan dulu sampai saldo kas naik.</li>
+                    <li>Gunakan laba bulan depan untuk menambah stok secara mandiri tanpa utang.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        else:
+            # JIKA LAYAK (ASPEK POSITIF)
+            st.success("### ✅ Hasil Konsultasi: LAYAK EKSPANSI")
+            
+            # Pilih Produk
+            if modal_akhir_bln < 15000000:
+                nama_produk = "KUR Super Mikro"
+                plafon_rekomendasi = 10000000
+            else:
+                nama_produk = "KUR Mikro"
+                plafon_rekomendasi = 50000000
 
             st.markdown(f"""
-            <div class="white-card" style="border-left: 8px solid {warna_lv};">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div><p style="margin:0;">Produk Disarankan:</p><h2 style="color:#001f3f; margin:0;">{produk} BRI</h2></div>
-                    <div style="text-align: right;"><p style="margin:0;">Plafon Maks:</p><h2 style="color:#28a745; margin:0;">{format_rp(plafon)}</h2></div>
-                </div>
-                <hr>
-                <div style="display: flex; justify-content: space-between;">
-                    <p>Kas Terakhir: <b>{format_rp(modal_akhir_bln)}</b></p>
-                    <p>Cicilan/Bulan: <b style="font-size: 20px; color:#ff4b4b;">{format_rp(total_setoran)}</b></p>
-                </div>
+            <div class="white-card">
+                <h4>Rencana Strategis Pinjaman:</h4>
+                <p>Berdasarkan laba {format_rp(laba_bln)}, Anda disarankan mengambil produk:</p>
+                <h3 style="color: #001f3f;">{nama_produk} BRI</h3>
+                <p>Estimasi Plafon: <b>{format_rp(plafon_rekomendasi)}</b></p>
             </div>
             """, unsafe_allow_html=True)
 
-            exp = st.expander("🔍 Detail Penggunaan Dana KUR")
-            exp.markdown(f"""<div style="color: black;">
-                <b>1. Mengapa Bagus?</b> Bunga rendah (6% setahun) karena disubsidi pemerintah.<br>
-                <b>2. Digunakan Untuk Apa?</b> Beli stok barang lebih banyak (Kulakan partai besar) atau tambah alat produksi.<br>
-                <b>3. Mengapa Aman?</b> Cicilan sudah dihitung tidak melebihi kapasitas laba bersih bulanan Anda.</div>""", unsafe_allow_html=True)
+            # Simulasi Interaktif
+            tenor = st.radio("Pilih Tenor yang Paling Aman:", [12, 18, 24], index=0, horizontal=True)
+            
+            # Hitung Cicilan
+            bunga_bln = (plafon_rekomendasi * 0.06) / 12
+            pokok_bln = plafon_rekomendasi / tenor
+            total_cicilan = pokok_bln + bunga_bln
+            
+            # Cek Keamanan Cicilan
+            status_beban = "AMAN" if total_cicilan <= kemampuan_bayar else "BERISIKO"
+            warna_beban = "green" if status_beban == "AMAN" else "red"
 
-    with tab_rev:
-        st.subheader("🛠️ Revisi Data")
-        df_v = df.sort_values('id', ascending=False)
-        pil = st.selectbox("Pilih data:", [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_v.iterrows()])
-        if st.button("🗑️ Hapus Data Ini"):
-            c.execute(f"DELETE FROM transaksi WHERE id={int(pil.split(' | ')[0])}"); conn.commit(); st.rerun()
-else:
-    st.info("Silakan masukkan data transaksi pertama Anda untuk melihat analisis.")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"""
+                <div class="white-card">
+                    <h4>Rincian Kewajiban:</h4>
+                    <p>Cicilan/Bulan: <b>{format_rp(total_cicilan)}</b></p>
+                    <p>Tenor: <b>{tenor} Bulan</b></p>
+                    <hr>
+                    <p>Status Cicilan: <b style="color:{warna_beban};">{status_beban}</b></p>
+                    <small>*Cicilan ideal maksimal {format_rp(kemampuan_bayar)}/bln</small>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col2:
+                st.markdown(f"""
+                <div class="white-card" style="border-left: 8px solid #FFD700;">
+                    <h4>💡 Instruksi Penggunaan Dana:</h4>
+                    <ul>
+                        <li><b>JANGAN</b> gunakan untuk keperluan pribadi/konsumtif.</li>
+                        <li>Gunakan untuk beli bahan baku volume besar agar harga pokok (HPP) turun.</li>
+                        <li>Dana ini bersifat produktif, tujuannya agar omzet naik 2x lipat.</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
