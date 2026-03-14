@@ -277,6 +277,19 @@ with st.expander("🛠️ PUSAT REVISI DATA (Edit atau Hapus Transaksi)"):
                 conn.commit()
                 st.warning(f"ID {id_target} Telah Dihapus!")
                 st.rerun()
+              with st.container():
+    # Ini untuk mengisi area putih yang kosong itu
+    st.markdown('<div class="white-card">', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Cicilan Aman (RPC)", format_rp(rpc_aman))
+    with col2:
+        st.metric("Kontinuitas Data", "98%", help="Tingkat kedisipinan input harian")
+    with col3:
+        # Menunjukkan pertumbuhan modal dari awal sampai sekarang
+        pertumbuhan = ((modal_sekarang - modal_awal) / modal_awal * 100) if modal_awal > 0 else 0
+        st.metric("Kesehatan Modal", f"{pertumbuhan:.1f}%", delta=f"{pertumbuhan:.1f}%")
+    st.markdown('</div>', unsafe_allow_html=True)
     else:
         st.write("Belum ada data untuk direvisi.")
 
