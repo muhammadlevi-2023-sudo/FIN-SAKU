@@ -27,7 +27,7 @@ def clean_to_int(teks):
     if not teks: return 0
     return int("".join(filter(str.isdigit, str(teks))))
 
-# 2. UI CUSTOM (NAVY & GOLD) - ANTI TEMA HP
+# 2. UI CUSTOM (NAVY & GOLD)
 st.markdown("""
 <style>
     .stApp { background-color: #001f3f !important; }
@@ -48,7 +48,7 @@ st.markdown("""
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
 jumlah_bulan_data = df['bulan'].nunique() if not df.empty else 0
 
-# --- SIDEBAR: PROFIL & PRIVE ADVISOR ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
@@ -62,18 +62,13 @@ with st.sidebar:
     
     st.markdown(f"Modal Awal: **{format_rp(modal_awal)}**")
     st.markdown(f"<h3 style='color:#FFD700;'>Kas Saat Ini:<br>{format_rp(modal_skrg_all)}</h3>", unsafe_allow_html=True)
-    st.write("---")
-    st.subheader("⚙️ Aturan Harga")
-    hpp_val = clean_to_int(st.text_input("HPP Produk", "5000"))
-    hrg_val = clean_to_int(st.text_input("Harga Jual", "15000"))
     
     st.write("---")
     prive_pct = st.slider("Jatah Pribadi/Prive (%)", 0, 50, 30)
-    # INTERAKTIF PRIVE ADVISOR
     if prive_pct > 30:
-        st.warning("⚠️ **Saran Bank:** Prive > 30% dianggap berisiko bagi kesehatan modal usaha.")
+        st.warning("⚠️ **Saran Bank:** Prive > 30% dianggap kurang sehat untuk pertumbuhan modal.")
     else:
-        st.success("✅ **Saran Bank:** Jatah prive sehat untuk pertumbuhan modal.")
+        st.success("✅ **Saran Bank:** Jatah prive sehat.")
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
@@ -81,23 +76,21 @@ rekap_mode = st.selectbox("Metode Catat:", ["Harian", "Mingguan", "Bulanan"])
 col_in, col_info = st.columns([1, 1.2])
 
 with col_in:
-    st.subheader(f"📝 Input Penjualan")
+    st.subheader("📝 Input Penjualan")
     tgl = st.date_input("Tanggal", datetime.now())
-    omzet_in = st.number_input(f"Total Omzet", value=0, step=10000)
+    # Gunakan Aturan Harga Default atau Input Langsung
+    hpp_produk = 5000 
+    harga_jual = 15000
     
-    # PERHITUNGAN OTOMATIS (INTERAKTIF)
-    biaya_hpp = omzet_in * (hpp_val / hrg_val) if hrg_val > 0 else 0
+    omzet_in = st.number_input("Total Omzet", value=0, step=10000)
+    
+    # Analisis Instan
+    biaya_hpp = omzet_in * (hpp_produk / harga_jual) if harga_jual > 0 else 0
     laba_in = omzet_in - biaya_hpp
     prive_in = laba_in * (prive_pct / 100) if laba_in > 0 else 0
 
     if omzet_in > 0:
-        st.markdown(f"""
-        <div style="background: rgba(255,215,0,0.1); padding: 10px; border-radius: 5px; border: 1px solid #FFD700;">
-            <p style="margin:0;">📊 Analisis Instan:</p>
-            <p style="margin:0;">Laba Bersih: <b>{format_rp(laba_in)}</b></p>
-            <p style="margin:0;">Jatah Prive: <b>{format_rp(prive_in)}</b></p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info(f"Estimasi Laba: {format_rp(laba_in)} | Prive: {format_rp(prive_in)}")
 
     if st.button("🔔 SIMPAN TRANSAKSI"):
         c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -106,7 +99,7 @@ with col_in:
         st.rerun()
 
 with col_info:
-    st.markdown('<div class="white-card"><h3>💡 Konsultasi Cepat</h3><p>Bank BRI biasanya melihat <b>konsistensi</b>. Pastikan mencatat setiap hari agar histori keuangan Anda terlihat sehat saat pengajuan KUR.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="white-card"><h3>💡 Konsultasi Cepat</h3><p>Bank menyukai UMKM yang tertib administrasi. Catatan selama <b>3-6 bulan</b> adalah syarat mutlak KUR.</p></div>', unsafe_allow_html=True)
 
 # --- BAGIAN LAPORAN & KUR ---
 if not df.empty:
@@ -132,7 +125,6 @@ if not df.empty:
         modal_awal_bln = modal_awal + total_laba_lalu - total_prive_lalu
         modal_akhir_bln = modal_awal_bln + laba_bln - prive_bln
 
-        # KODE LAPORAN SEBELUMNYA (TABEL DETAIL)
         c_lr, c_pm = st.columns(2)
         with c_lr:
             st.markdown(f"""<div class="white-card"><h3 style="text-align:center;">LABA RUGI - {sel_b}</h3><hr>
@@ -144,4 +136,44 @@ if not df.empty:
                     </tr>
                 </table></div>""", unsafe_allow_html=True)
         with c_pm:
-            st.markdown(f"""<div class="white-card"><h3 style="text-align:center;">MODAL - {sel_
+            st.markdown(f"""<div class="white-card"><h3 style="text-align:center;">MODAL - {sel_b}</h3><hr>
+                <table style="width:100%;">
+                    <tr><td>Modal Awal (Saldo Lalu)</td><td style="text-align:right;">{format_rp(modal_awal_bln)}</td></tr>
+                    <tr><td>Laba Bulan Ini</td><td style="text-align:right; color:green;">{format_rp(laba_bln)}</td></tr>
+                    <tr style="color:red;"><td>Prive</td><td style="text-align:right;">({format_rp(prive_bln)})</td></tr>
+                    <tr style="border-top:2px solid black; font-weight:bold; background:#FFD700;">
+                        <td>MODAL AKHIR (KAS)</td><td style="text-align:right;">{format_rp(modal_akhir_bln)}</td>
+                    </tr>
+                </table></div>""", unsafe_allow_html=True)
+
+    with tab_kur:
+        st.subheader("🏦 Konsultasi Strategis KUR")
+        st.write(f"Histori Laporan: **{jumlah_bulan_data} Bulan**")
+        
+        if jumlah_bulan_data < 3:
+            st.error(f"### 🚩 BELUM LAYAK (Butuh {3 - jumlah_bulan_data} bulan lagi)")
+            st.markdown(f"""<div class="white-card" style="border-left: 8px solid red;">
+                <h4>Analisis:</h4>
+                <p>Bank BRI mewajibkan usaha minimal berjalan 6 bulan. FIN-Saku menyarankan minimal <b>3 bulan laporan rapi</b> sebelum pengajuan.</p>
+                </div>""", unsafe_allow_html=True)
+        elif laba_bln < 1000000:
+            st.warning("### 🚩 LABA TERLALU KECIL")
+            st.markdown('<div class="white-card">Tingkatkan omzet agar laba di atas 1 Juta sebelum meminjam.</div>', unsafe_allow_html=True)
+        else:
+            st.success("### ✅ LAYAK EKSPANSI")
+            plafon = 10000000 if modal_akhir_bln < 15000000 else 50000000
+            st.markdown(f'<div class="white-card">Rekomendasi Plafon: <b>{format_rp(plafon)}</b></div>', unsafe_allow_html=True)
+
+    with tab_rev:
+        st.subheader("🛠️ Revisi")
+        df_rev = df.sort_values(by='id', ascending=False)
+        if not df_rev.empty:
+            pilihan = [f"ID:{row['id']} | {row['tanggal']} | {format_rp(row['omzet'])}" for _, row in df_rev.iterrows()]
+            target = st.selectbox("Pilih data:", pilihan)
+            id_del = int(target.split("|")[0].replace("ID:", ""))
+            if st.button("🗑️ HAPUS PERMANEN"):
+                c.execute("DELETE FROM transaksi WHERE id = ?", (id_del,))
+                conn.commit()
+                st.rerun()
+else:
+    st.info("Silakan masukkan data transaksi pertama Anda.")
