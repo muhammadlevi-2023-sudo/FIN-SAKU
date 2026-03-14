@@ -204,7 +204,6 @@ if not df_all.empty:
                 file_name=f"Laporan_{sel_lap}_{nama_u}.pdf",
                 mime="application/pdf"
             )
-   
 with tab2:
         st.subheader("🏦 Konsultasi Strategis KUR")
         
