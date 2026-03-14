@@ -135,136 +135,69 @@ if not df.empty:
                         <td>MODAL AKHIR (KAS)</td><td style="text-align:right;">{format_rp(modal_akhir_bln)}</td>
                     </tr>
                 </table></div>""", unsafe_allow_html=True)
-with tab_kur:
+
+    with tab_kur:
         st.markdown(f"### 📑 Konsultasi Pinjaman: {sel_b}")
-        
-        # --- LOGIKA KONSULTAN ---
-        rasio_laba_cicilan = 0.35 # Batas aman cicilan adalah 35% dari laba
+        rasio_laba_cicilan = 0.35 
         kemampuan_bayar = laba_bln * rasio_laba_cicilan
         
-        # Logika Penentuan Kelayakan
         if laba_bln <= 0:
             st.error("### 🚩 Hasil Konsultasi: JANGAN BERHUTANG DULU")
-            st.markdown(f"""
-            <div class="white-card" style="border-left: 8px solid red;">
+            st.markdown(f"""<div class="white-card" style="border-left: 8px solid red;">
                 <h4>Analisis Konsultan:</h4>
-                <p>Bulan ini usaha Anda sedang <b>merugi</b>. Mengambil pinjaman saat rugi sangat berbahaya karena bunga bank akan mempercepat modal Anda habis.</p>
-                <hr>
-                <b>Apa yang harus Anda tingkatkan?</b>
-                <ul>
-                    <li>Fokus pada efisiensi biaya HPP sebelum menambah utang.</li>
-                    <li>Pastikan operasional sudah positif (untung) minimal 3 bulan berturut-turut.</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
+                <p>Bulan ini usaha Anda sedang <b>merugi</b>. Hindari pinjaman agar modal tidak cepat habis.</p>
+                <hr><b>Saran:</b> Fokus efisiensi HPP dan pastikan laba positif 3 bulan berturut-turut.</div>""", unsafe_allow_html=True)
         elif modal_akhir_bln < 5000000:
             st.warning("### 🚩 Hasil Konsultasi: PERKUAT MODAL INTERNAL")
-            st.markdown(f"""
-            <div class="white-card" style="border-left: 8px solid orange;">
+            st.markdown(f"""<div class="white-card" style="border-left: 8px solid orange;">
                 <h4>Analisis Konsultan:</h4>
-                <p>Uang Kas (Modal Akhir) Anda hanya <b>{format_rp(modal_akhir_bln)}</b>. Bank BRI mensyaratkan minimal 5 juta untuk menjaga likuiditas.</p>
-                <hr>
-                <b>Saran Strategis:</b>
-                <ul>
-                    <li><b>Stop Prive:</b> Jangan ambil uang jajan dulu sampai saldo kas naik.</li>
-                    <li>Gunakan laba bulan depan untuk menambah stok secara mandiri tanpa utang.</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
+                <p>Uang Kas Anda <b>{format_rp(modal_akhir_bln)}</b> di bawah syarat minimal BRI (5jt).</p>
+                <hr><b>Saran Strategis:</b> Stop Prive sampai kas naik dan gunakan laba untuk stok mandiri.</div>""", unsafe_allow_html=True)
         else:
-            # JIKA LAYAK (ASPEK POSITIF)
             st.success("### ✅ Hasil Konsultasi: LAYAK EKSPANSI")
-            
-            # Pilih Produk
             if modal_akhir_bln < 15000000:
-                nama_produk = "KUR Super Mikro"
-                plafon_rekomendasi = 10000000
+                nama_produk, plafon_rekomendasi = "KUR Super Mikro", 10000000
             else:
-                nama_produk = "KUR Mikro"
-                plafon_rekomendasi = 50000000
+                nama_produk, plafon_rekomendasi = "KUR Mikro", 50000000
 
-            st.markdown(f"""
-            <div class="white-card">
+            st.markdown(f"""<div class="white-card">
                 <h4>Rencana Strategis Pinjaman:</h4>
-                <p>Berdasarkan laba {format_rp(laba_bln)}, Anda disarankan mengambil produk:</p>
-                <h3 style="color: #001f3f;">{nama_produk} BRI</h3>
-                <p>Estimasi Plafon: <b>{format_rp(plafon_rekomendasi)}</b></p>
-            </div>
-            """, unsafe_allow_html=True)
+                <p>Disarankan produk: <b style="color: #001f3f;">{nama_produk} BRI</b></p>
+                <p>Estimasi Plafon: <b>{format_rp(plafon_rekomendasi)}</b></p></div>""", unsafe_allow_html=True)
 
-            # Simulasi Interaktif
-            tenor = st.radio("Pilih Tenor yang Paling Aman:", [12, 18, 24], index=0, horizontal=True)
-            
-            # Hitung Cicilan
-            bunga_bln = (plafon_rekomendasi * 0.06) / 12
-            pokok_bln = plafon_rekomendasi / tenor
-            total_cicilan = pokok_bln + bunga_bln
-            
-            # Cek Keamanan Cicilan
+            tenor = st.radio("Pilih Tenor:", [12, 18, 24], index=0, horizontal=True)
+            total_cicilan = (plafon_rekomendasi / tenor) + ((plafon_rekomendasi * 0.06) / 12)
             status_beban = "AMAN" if total_cicilan <= kemampuan_bayar else "BERISIKO"
             warna_beban = "green" if status_beban == "AMAN" else "red"
 
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown(f"""
-                <div class="white-card">
-                    <h4>Rincian Kewajiban:</h4>
-                    <p>Cicilan/Bulan: <b>{format_rp(total_cicilan)}</b></p>
-                    <p>Tenor: <b>{tenor} Bulan</b></p>
-                    <hr>
-                    <p>Status Cicilan: <b style="color:{warna_beban};">{status_beban}</b></p>
-                    <small>*Cicilan ideal maksimal {format_rp(kemampuan_bayar)}/bln</small>
-                </div>
-                """, unsafe_allow_html=True)
-                
+                st.markdown(f"""<div class="white-card"><h4>Rincian Kewajiban:</h4>
+                    <p>Cicilan/Bulan: <b>{format_rp(total_cicilan)}</b> ({tenor} Bln)</p><hr>
+                    <p>Status: <b style="color:{warna_beban};">{status_beban}</b></p>
+                    <small>*Maksimal cicilan ideal: {format_rp(kemampuan_bayar)}/bln</small></div>""", unsafe_allow_html=True)
             with col2:
-                st.markdown(f"""
-                <div class="white-card" style="border-left: 8px solid #FFD700;">
-                    <h4>💡 Instruksi Penggunaan Dana:</h4>
-                    <ul>
-                        <li><b>JANGAN</b> gunakan untuk keperluan pribadi/konsumtif.</li>
-                        <li>Gunakan untuk beli bahan baku volume besar agar harga pokok (HPP) turun.</li>
-                        <li>Dana ini bersifat produktif, tujuannya agar omzet naik 2x lipat.</li>
-                    </ul>
-                </div>
-                """, unsafe_allow_html=True)
-              with tab_rev:
+                st.markdown("""<div class="white-card" style="border-left: 8px solid #FFD700;">
+                    <h4>💡 Instruksi Dana:</h4>
+                    <ul><li>Gunakan hanya untuk modal kerja (stok barang).</li>
+                    <li>Jangan gunakan untuk pribadi.</li>
+                    <li>Tujuannya agar omzet naik 2x lipat.</li></ul></div>""", unsafe_allow_html=True)
+
+    with tab_rev:
         st.subheader("🛠️ Manajer Data (Koreksi Transaksi)")
-        st.write("Gunakan bagian ini untuk menghapus data yang salah input.")
-        
-        # Urutkan dari yang terbaru supaya mudah nyarinya
         df_rev = df.sort_values(by='id', ascending=False)
-        
         if not df_rev.empty:
-            # Membuat list pilihan yang rapi
-            pilihan_hapus = []
-            for _, row in df_rev.iterrows():
-                pilihan_hapus.append(f"ID: {row['id']} | {row['tanggal']} | Omzet: {format_rp(row['omzet'])}")
-            
+            pilihan_hapus = [f"ID: {row['id']} | {row['tanggal']} | Omzet: {format_rp(row['omzet'])}" for _, row in df_rev.iterrows()]
             target = st.selectbox("Pilih Transaksi yang Ingin Dihapus:", pilihan_hapus)
-            
-            # Ambil ID saja dari teks pilihan
             id_to_delete = int(target.split(" | ")[0].replace("ID: ", ""))
             
-            # Tombol Konfirmasi
-            col_tombol1, col_tombol2 = st.columns([1, 3])
-            with col_tombol1:
-                konfirmasi = st.checkbox("Saya yakin ingin menghapus")
-            
-            with col_tombol2:
+            if st.checkbox("Saya yakin ingin menghapus"):
                 if st.button("🗑️ HAPUS PERMANEN"):
-                    if konfirmasi:
-                        try:
-                            c.execute("DELETE FROM transaksi WHERE id = ?", (id_to_delete,))
-                            conn.commit()
-                            st.success(f"Data ID {id_to_delete} berhasil dihapus!")
-                            # Paksa aplikasi untuk refresh data terbaru
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Gagal menghapus: {e}")
-                    else:
-                        st.warning("Centang kotak konfirmasi dulu ya!")
+                    c.execute("DELETE FROM transaksi WHERE id = ?", (id_to_delete,))
+                    conn.commit()
+                    st.success("Data berhasil dihapus!")
+                    st.rerun()
         else:
-            st.info("Belum ada data yang bisa direvisi.")
+            st.info("Belum ada data.")
+else:
+    st.info("Silakan isi form penjualan.")
