@@ -7,7 +7,7 @@ from datetime import datetime
 st.set_page_config(page_title="FIN-Saku: Solusi KUR Digital", layout="wide")
 
 # --- DATABASE ENGINE ---
-conn = sqlite3.connect('finsaku_unair_fixed_final.db', check_same_thread=False)
+conn = sqlite3.connect('finsaku_unair_v3.db', check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS transaksi 
              (id INTEGER PRIMARY KEY, tanggal TEXT, bulan TEXT, minggu TEXT, 
@@ -25,39 +25,33 @@ def clean_to_int(teks):
     angka = "".join(filter(str.isdigit, str(teks)))
     return int(angka) if angka else 0
 
-# 2. UI CUSTOM: UNAIR NAVY & GOLD (Anti-Nyaru Version)
+# 2. UI CUSTOM: UNAIR NAVY & GOLD (Anti-Nyaru & Anti-Transparent)
 st.markdown("""
 <style>
-    /* KUNCI BACKGROUND UTAMA */
+    /* 1. BACKGROUND UTAMA NAVY UNAIR */
     .stApp { background-color: #003366 !important; }
 
-    /* PAKSA SEMUA TEKS BAWAAN MENJADI PUTIH TERANG */
+    /* 2. PAKSA SEMUA TEKS BAWAAN MENJADI PUTIH SOLID */
     .stApp, .stApp p, .stApp span, .stApp label, .stApp li, .stApp h1, .stApp h2, .stApp h3 {
         color: #ffffff !important;
         opacity: 1 !important;
     }
 
-    /* PERBAIKAN TAB: Pastikan teks HARIAN, MINGGUAN, dll. terlihat jelas */
+    /* 3. PERBAIKAN TAB: PASTIKAN TEKS TAB TERLIHAT JELAS */
     button[data-baseweb="tab"] p { 
         color: #FFD700 !important; 
         font-weight: 800 !important; 
         font-size: 16px !important;
+        text-transform: uppercase;
     }
     button[data-baseweb="tab"][aria-selected="true"] { 
-        background-color: #FFD700 !important; 
+        border-bottom: 4px solid #FFD700 !important;
     }
     button[data-baseweb="tab"][aria-selected="true"] p { 
-        color: #003366 !important; 
+        color: #ffffff !important; 
     }
 
-    /* SIDEBAR */
-    [data-testid="stSidebar"] { 
-        background-color: #002244 !important; 
-        border-right: 3px solid #FFD700; 
-    }
-    [data-testid="stSidebar"] * { color: #ffffff !important; }
-
-    /* BOX EDUKASI: Paksa teks jadi Navy agar kontras di atas putih */
+    /* 4. BOX EDUKASI: TEKS NAVY DI ATAS PUTIH */
     .edu-box { 
         background-color: #ffffff !important; 
         padding: 25px; border-radius: 15px; 
@@ -69,19 +63,18 @@ st.markdown("""
         font-weight: bold !important;
     }
 
-    /* CARD LAPORAN */
-    .report-card { 
-        background-color: rgba(255, 255, 255, 0.1) !important; 
-        padding: 25px; border-radius: 12px; 
-        border: 2px solid #FFD700; 
+    /* 5. SIDEBAR */
+    [data-testid="stSidebar"] { 
+        background-color: #002244 !important; 
+        border-right: 3px solid #FFD700; 
     }
     
-    /* INPUT FIELD: Pastikan teks ketikan berwarna putih */
+    /* 6. INPUT FIELD */
     input { color: #ffffff !important; background-color: #002244 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATA PROFIL ---
+# --- LOAD PROFIL ---
 c.execute("SELECT * FROM profil WHERE id=1")
 p_data = c.fetchone()
 saved_nama = p_data[1] if p_data else "Usaha Baru"
@@ -90,66 +83,65 @@ saved_modal = p_data[2] if p_data else 0.0
 # --- SIDEBAR ---
 with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700 !important;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
-    nama_usaha = st.text_input("Nama Usaha", saved_nama)
-    m_raw = st.text_input("Modal Kas Awal (Rp)", value=str(int(saved_modal)))
-    if st.button("💾 SIMPAN PROFIL"):
-        c.execute("INSERT OR REPLACE INTO profil (id, nama_usaha, modal_awal) VALUES (1, ?, ?)", (nama_usaha, clean_to_int(m_raw)))
+    st.write("---")
+    # Nama Key dibuat unik agar tidak DuplicateElementId
+    new_nama = st.text_input("Nama Usaha Anda", saved_nama, key="input_nama_usaha")
+    m_raw = st.text_input("Modal Kas Awal (Rp)", value=str(int(saved_modal)), key="input_modal_awal")
+    
+    if st.button("💾 SIMPAN PROFIL", key="btn_simpan_profil"):
+        c.execute("INSERT OR REPLACE INTO profil (id, nama_usaha, modal_awal) VALUES (1, ?, ?)", 
+                  (new_nama, clean_to_int(m_raw)))
         conn.commit()
         st.rerun()
 
 # --- HALAMAN UTAMA ---
-st.title(f"Dashboard Keuangan: {nama_usaha}")
+st.title(f"Dashboard Keuangan: {new_nama}")
 
-# EDU BOX (Sudah dikunci warnanya agar tidak putih di atas putih)
 st.markdown("""
 <div class="edu-box">
-    <h3>🔍 Inovasi FIN-Saku: Mengapa UMKM Harus Bankable?</h3>
-    <p>Bank menilai kesehatan usaha Anda melalui:</p>
+    <h3>🔍 Mengapa FIN-Saku Penting bagi UMKM?</h3>
+    <p>Aplikasi ini membantu Anda membangun profil <b>Bankable</b> melalui:</p>
     <ul>
-        <li><b>Karakter:</b> Kedisiplinan Anda mencatat transaksi harian.</li>
-        <li><b>Kapasitas:</b> Laba bersih bulanan yang cukup untuk membayar cicilan.</li>
-        <li><b>Modal:</b> Pengelolaan kas yang terpisah antara usaha dan pribadi.</li>
+        <li><b>Karakter:</b> Disiplin mencatat setiap rupiah yang keluar-masuk.</li>
+        <li><b>Kapasitas:</b> Membuktikan laba Anda cukup untuk membayar cicilan.</li>
+        <li><b>Modal:</b> Memastikan uang usaha tidak habis untuk kebutuhan pribadi.</li>
     </ul>
 </div>
 """, unsafe_allow_html=True)
 
+# --- CATAT TRANSAKSI ---
 col_in, _ = st.columns([1, 1.2])
 with col_in:
     st.subheader("📝 Catat Penjualan")
-    tgl = st.date_input("Tanggal Transaksi", datetime.now())
-    qty = st.number_input("Unit Terjual", min_value=0)
-    if st.button("🔔 SIMPAN TRANSAKSI"):
+    tgl = st.date_input("Tanggal Transaksi", datetime.now(), key="input_tgl")
+    qty = st.number_input("Unit Terjual", min_value=0, key="input_qty")
+    if st.button("🔔 SIMPAN TRANSAKSI", key="btn_simpan_trx"):
         if qty > 0:
-            # Contoh HPP & Harga dari sidebar (disimplifikasi agar tidak error)
             v_omzet = qty * 15000 
             v_laba = qty * 10000
             v_prive = v_laba * 0.3
             c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive) VALUES (?, ?, ?, ?, ?, ?)",
                       (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", v_omzet, v_laba, v_prive))
             conn.commit()
+            st.success("Tersimpan!")
             st.rerun()
 
-# --- TAB LAPORAN (Sudah diperbaiki visibilitasnya) ---
+# --- TAB LAPORAN ---
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
 if not df.empty:
     st.write("---")
     t_har, t_min, t_bul, t_kur = st.tabs(["📆 HARIAN", "📅 MINGGUAN", "🗓️ BULANAN", "🏦 ANALISIS KUR"])
 
     with t_bul:
-        sel_b = st.selectbox("Pilih Bulan Laporan", df['bulan'].unique())
+        sel_b = st.selectbox("Pilih Bulan Laporan", df['bulan'].unique(), key="select_bulan")
         sub_df = df[df['bulan'] == sel_b]
         total_kas = clean_to_int(m_raw) + (df['laba'].sum() - df['prive'].sum())
         
         st.markdown(f"""
-        <div class="report-card">
-            <h3 style='text-align:center; color:#FFD700;'>LAPORAN BULANAN: {sel_b}</h3>
-            <table style="width:100%; font-size:18px; color: white !important;">
-                <tr><td>Total Omzet</td><td style="text-align:right;">{format_rp(sub_df['omzet'].sum())}</td></tr>
-                <tr style="color:#FFD700;"><td><b>Laba Bersih</b></td><td style="text-align:right;"><b>{format_rp(sub_df['laba'].sum())}</b></td></tr>
-                <tr style="background-color:#FFD700; color:#003366; font-weight:bold;">
-                    <td style="padding:10px;">SALDO KAS SAAT INI</td><td style="text-align:right;">{format_rp(total_kas)}</td>
-                </tr>
-            </table>
+        <div style="border: 2px solid #FFD700; padding: 20px; border-radius: 10px;">
+            <h3 style='text-align:center; color:#FFD700;'>LAPORAN: {sel_b}</h3>
+            <p>Total Laba Bersih: <b>{format_rp(sub_df['laba'].sum())}</b></p>
+            <p>Saldo Kas Saat Ini: <b style="color:#FFD700;">{format_rp(total_kas)}</b></p>
         </div>
         """, unsafe_allow_html=True)
 
