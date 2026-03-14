@@ -58,7 +58,7 @@ with st.sidebar:
     hpp_raw = st.text_input("HPP (Modal) /Produk", "5000")
     hrg_raw = st.text_input("Harga Jual /Produk", "15000")
     prive_pct = st.slider("Jatah Prive (%)", 0, 100, 30)
-    st.caption("BRI menyarankan Prive < 50% dari laba.")
+    st.caption("Prive merupakan Pendapatan untuk keburutuhan pribadi dan BRI menyarankan Prive < 50% dari laba.")
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Pusat Analisis: {nama_u}")
