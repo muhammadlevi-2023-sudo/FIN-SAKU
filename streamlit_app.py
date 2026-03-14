@@ -27,77 +27,48 @@ def clean_to_int(teks):
     angka = "".join(filter(str.isdigit, str(teks)))
     return int(angka) if angka else 0
 
-# 2. UI CUSTOM: NAVY & GOLD (Hard-Locked for All Device Themes)
+# 2. UI CUSTOM: NAVY & GOLD (High Contrast - Teks Anti Hilang)
 st.markdown("""
 <style>
-    /* 1. PAKSA BACKGROUND GELAP UNTUK SELURUH APLIKASI */
-    .stApp {
-        background-color: #001220 !important; /* Navy Super Gelap */
+    /* Paksa background terang agar teks tidak putih di atas putih */
+    .stApp { background-color: #f8f9fa; color: #1a1a1a; }
+    
+    /* Sidebar Navy Gelap */
+    [data-testid="stSidebar"] { background-color: #001f3f; border-right: 2px solid #FFD700; }
+    [data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 { 
+        color: #ffffff !important; 
     }
-
-    /* 2. KUNCI WARNA TEKS UTAMA JADI PUTIH/GOLD */
-    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp li, .stApp span, .stApp label {
-        color: #ffffff !important;
-    }
-
-    /* 3. SIDEBAR (Navy Original) */
-    [data-testid="stSidebar"] {
-        background-color: #001f3f !important;
-        border-right: 2px solid #FFD700;
-    }
-
-    /* 4. BOX EDUKASI (Putih agar menonjol, tapi teks tetap Navy Gelap agar terbaca) */
+    
+    /* Box Edukasi (Teks Navy Gelap - Kontras Tinggi) */
     .edu-box { 
-        background-color: #ffffff !important; 
-        padding: 25px; border-radius: 12px; 
-        border-left: 10px solid #FFD700; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        margin-bottom: 25px;
+        background-color: #ffffff; padding: 25px; border-radius: 12px; 
+        border-left: 10px solid #FFD700; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 25px; color: #001f3f !important;
     }
-    .edu-box h3, .edu-box p, .edu-box li, .edu-box b { 
-        color: #001f3f !important; /* Teks di dalam box putih harus gelap */
-    }
+    .edu-box h3, .edu-box p, .edu-box li { color: #001f3f !important; font-weight: 500; }
 
-    /* 5. TAB (Harian, Bulanan, dll) */
-    button[data-baseweb="tab"] {
-        background-color: transparent !important;
-    }
-    button[data-baseweb="tab"] p {
-        color: #FFD700 !important; /* Warna Gold agar terlihat di background gelap */
-        font-weight: bold !important;
-    }
-    button[data-baseweb="tab"][aria-selected="true"] {
-        border-bottom-color: #FFD700 !important;
-    }
-
-    /* 6. LAPORAN BIRU (Tetap Biru Muda, tapi teks Navy) */
+    /* Laporan Biru Akuntansi (Style PT Enggan Mundur) */
     .report-card { 
-        background-color: #dbeafe !important; 
-        padding: 30px; border-radius: 10px; 
-        border: 2px solid #FFD700; 
+        background-color: #dbeafe; padding: 30px; border-radius: 10px; 
+        color: #001f3f !important; border: 2px solid #001f3f; 
         margin-bottom: 20px;
     }
-    .report-card h3, .report-card p, .report-card table, .report-card tr, .report-card td {
-        color: #001f3f !important;
-    }
-
-    /* 7. KARTU KUR (Navy-Gold) */
+    
+    /* Kartu KUR Bankable (Navy-Gold) */
     .kur-card { 
-        background-color: #001f3f !important; 
-        padding: 30px; border-radius: 15px; 
-        border: 2px solid #FFD700;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+        background-color: #001f3f; color: #FFD700; padding: 30px; 
+        border-radius: 15px; border: 2px solid #FFD700;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
     }
-    .kur-card h2, .kur-card p, .kur-card td {
-        color: #FFD700 !important;
+    
+    /* Tombol Gold */
+    .stButton>button { 
+        background-color: #FFD700; color: #001f3f; font-weight: bold;
+        border-radius: 8px; border: none; height: 3.5em; width: 100%;
     }
-
-    /* 8. INPUT FIELD (Agar kotak ketik tidak putih polos) */
-    .stTextInput input, .stNumberInput input {
-        background-color: #001f3f !important;
-        color: #ffffff !important;
-        border: 1px solid #FFD700 !important;
-    }
+    .stButton>button:hover { background-color: #e6c200; color: #001f3f; }
+    
+    .step-tag { background-color: #FFD700; color: #001f3f; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -195,7 +166,9 @@ if not st.session_state.db_transaksi.empty:
     with t_bul:
         sel_b = st.selectbox("Pilih Bulan", st.session_state.db_transaksi['Bulan'].unique())
         render_report(st.session_state.db_transaksi[st.session_state.db_transaksi['Bulan'] == sel_b], f"Laporan Bulanan - {sel_b}")
-        
+
+    # Cari bagian "with t_kur:" di kode v25.0 sebelumnya, lalu ganti isinya dengan ini:
+
     with t_kur:
         # Perhitungan Profesional
         avg_laba = st.session_state.db_transaksi['Laba'].sum() / max(1, len(st.session_state.db_transaksi['Bulan'].unique()))
