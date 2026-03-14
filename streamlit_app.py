@@ -140,89 +140,89 @@ if not df.empty:
             <p style="font-size:12px; margin-top:10px;">*Jika angka Penambahan Modal positif, berarti uang kas usaha Anda bertambah sehat.</p>
         </div>
         """, unsafe_allow_html=True)
+with t_kur:
+        # --- LOGIKA ANALISIS PINJAMAN ---
+        # Mengambil laba dari data terakhir yang diinput
+        laba_akhir = df.iloc[-1]['laba'] if not df.empty else 0
+        rpc_aman = laba_akhir * 0.35  # Standar Bank: Cicilan maks 35% laba
+        
+        # Simulasi Plafon (Minimal KUR Mikro 10jt, Plafon disarankan = RPC * 24 bulan)
+        plafon_hitung = (rpc_aman * 24)
+        plafon_final = plafon_hitung if plafon_hitung >= 10000000 else 10000000
+        
+        # Hitung Cicilan KUR BRI (Bunga 6% per tahun atau 0.5% per bulan)
+        bunga_bln = plafon_final * 0.005
+        pokok_bln = plafon_final / 24
+        total_cicilan = pokok_bln + bunga_bln
 
-   with t_kur:
-        # --- LOGIKA ANALISIS ---
-        laba_akhir = df.iloc[-1]['laba']
-        rpc_aman = laba_akhir * 0.35  # Batas aman 35% laba
+        st.markdown("### 🏦 Simulasi & Kelayakan KUR BRI")
         
-        # Simulasi Plafon (Contoh 24 Bulan)
-        plafon_aman = (rpc_aman * 24)
-        # Standar KUR Mikro minimal biasanya 10jt
-        plafon_tampil = plafon_aman if plafon_aman >= 10000000 else 10000000
-        
-        # Hitung Cicilan (Bunga KUR 6% per tahun = 0.5% per bulan)
-        bunga_per_bln = plafon_tampil * 0.005
-        cicilan_pokok = plafon_tampil / 24
-        total_cicilan = cicilan_pokok + bunga_per_bln
-
-        st.markdown("### 🏦 Analisis Strategis Pinjaman")
-        
-        # 1. STATUS KELAYAKAN (Visual & Tegas)
-        if laba_akhir > total_cicilan and modal_sekarang > modal_awal:
-            st.success("### ✅ STATUS: SANGAT LAYAK (AMAN)")
-            pesan_status = "Berdasarkan catatan, laba Anda mampu membayar cicilan tanpa mengganggu operasional."
-        elif laba_akhir > total_cicilan:
-            st.warning("### ⚠️ STATUS: LAYAK (DENGAN CATATAN)")
-            pesan_status = "Anda mampu mencicil, tapi modal Anda sedang menurun. Sebaiknya tekan pengeluaran pribadi (Prive)."
+        # 1. INDIKATOR STATUS (Jawaban Langsung untuk Orang Awam)
+        if laba_akhir >= total_cicilan and (total_laba - total_prive) > 0:
+            st.success("### ✅ STATUS: LAYAK AJUKAN")
+            status_text = "Laba Anda cukup untuk membayar cicilan dengan sangat aman."
+        elif laba_akhir > 0:
+            st.warning("### ⚠️ STATUS: PERTIMBANGKAN LAGI")
+            status_text = "Anda bisa mencicil, tapi sisa laba untuk operasional akan sangat tipis."
         else:
-            st.error("### ❌ STATUS: TIDAK DISARANKAN")
-            pesan_status = "Laba Anda saat ini terlalu kecil untuk mengambil pinjaman sebesar ini."
+            st.error("### ❌ STATUS: BELUM LAYAK")
+            status_text = "Laba Anda saat ini belum mencukupi untuk mengambil pinjaman KUR."
 
         # 2. KARTU INFORMASI UTAMA
         c1, c2 = st.columns(2)
         with c1:
             st.markdown(f"""
             <div class="white-card">
-                <p style="margin:0;">Kemampuan Cicil Maksimal:</p>
-                <h2 style="color:#28a745; margin:0;">{format_rp(rpc_aman)} /bln</h2>
-                <p style='font-size:12px; color:gray;'>*Angka ini adalah batas aman agar Anda tidak gagal bayar.</p>
+                <p style="margin:0;">Kemampuan Bayar (Per Bulan):</p>
+                <h2 style="color:#28a745; margin:0;">{format_rp(rpc_aman)}</h2>
+                <p style='font-size:12px; color:gray;'>*Ini batas aman agar dapur tetap ngebul.</p>
                 <hr>
-                <p style="margin:0;">Rekomendasi Plafon:</p>
-                <h2 style="color:#001f3f; margin:0;">{format_rp(plafon_tampil)}</h2>
-                <p style='font-size:12px; color:gray;'>*Saran pinjaman untuk jangka waktu 24 bulan.</p>
+                <p style="margin:0;">Saran Pinjaman (Plafon):</p>
+                <h2 style="color:#001f3f; margin:0;">{format_rp(plafon_final)}</h2>
+                <p style='font-size:12px; color:gray;'>*Dihitung untuk masa pinjaman 2 tahun.</p>
             </div>
             """, unsafe_allow_html=True)
 
         with c2:
             st.markdown(f"""
             <div class="white-card">
-                <p style="margin:0;">Rincian Cicilan (Tenor 2 thn):</p>
+                <p style="margin:0;">Rincian Cicilan (Tenor 24 Bln):</p>
                 <table style="width:100%; color:black;">
-                    <tr><td>Pokok</td><td style="text-align:right;">{format_rp(cicilan_pokok)}</td></tr>
-                    <tr><td>Bunga (6%)</td><td style="text-align:right;">{format_rp(bunga_per_bln)}</td></tr>
+                    <tr><td>Uang Pokok</td><td style="text-align:right;">{format_rp(pokok_bln)}</td></tr>
+                    <tr><td>Bunga (6% thn)</td><td style="text-align:right;">{format_rp(bunga_bln)}</td></tr>
                     <tr style="font-weight:bold; border-top:1px solid #ccc;">
-                        <td>Total Bayar</td>
+                        <td>Total Setoran</td>
                         <td style="text-align:right;">{format_rp(total_cicilan)}</td>
                     </tr>
                 </table>
-                <p style="margin-top:10px; font-size:13px; font-style:italic;">
-                💡 Tips: Total bunga hanya sekitar {format_rp(bunga_per_bln)} per bulan. Sangat ringan jika laba Anda stabil.
+                <p style="margin-top:10px; font-size:13px; color:{"green" if total_cicilan <= rpc_aman else "red"};">
+                <b>{'✅ CICILAN SEHAT' if total_cicilan <= rpc_aman else '⚠️ CICILAN TERLALU BERAT'}</b>
                 </p>
             </div>
             """, unsafe_allow_html=True)
 
-        # 3. CHECKLIST PERSIAPAN KE BANK
-        st.markdown("---")
-        col_list, col_info = st.columns([1, 1])
+        # 3. PANDUAN CARA PINJAM
+        st.write("---")
+        col_list, col_edu = st.columns([1, 1])
         with col_list:
             st.markdown("""
             <div class="white-card">
-                <h4>📋 Dokumen Yang Harus Dibawa:</h4>
-                <input type="checkbox" checked> KTP Suami & Istri (Jika sudah nikah)<br>
-                <input type="checkbox" checked> Kartu Keluarga (KK)<br>
-                <input type="checkbox" checked> NIB (Nomor Induk Berusaha)<br>
-                <input type="checkbox" checked> Laporan Laba Rugi (Cetak dari Aplikasi ini)<br>
-                <p style="font-size:12px; color:red; margin-top:10px;">*Pastikan tidak punya tunggakan di Pinjol/Bank lain agar lolos SLIK/BI Checking.</p>
+                <h4>📋 Siapkan Ini Sebelum ke BRI:</h4>
+                <p>1. KTP & Kartu Keluarga (KK)<br>
+                2. NIB (Nomor Induk Berusaha)<br>
+                3. Laporan Laba Rugi (Cetak dari tab sebelah)<br>
+                4. Pastikan tidak ada tunggakan di Pinjol/Bank lain.</p>
             </div>
             """, unsafe_allow_html=True)
             
-        with col_info:
+        with col_edu:
             st.markdown(f"""
             <div class="white-card">
-                <h4>💡 Mengapa Angka Ini Muncul?</h4>
-                <p>Bank BRI menyukai UMKM yang <b>Bankable</b>. Artinya, usaha Anda punya catatan yang jelas.</p>
-                <p>Aplikasi <b>FIN-Saku</b> menghitung laba bersih Anda dan memastikan cicilan tidak lebih dari 35% laba. 
+                <h4>💡 Kenapa Harus Sesuai Aplikasi?</h4>
+                <p>Mantri BRI akan melihat <b>Realtime Dana</b> dan <b>Laba</b> Anda. 
+                Jika data di aplikasi ini sinkron dengan kondisi di lapangan, kepercayaan bank akan naik 100%.</p>
+            </div>
+            """, unsafe_allow_html=True)
                 Ini adalah kunci rahasia agar pengajuan Anda disetujui oleh Mantri BRI.</p>
             </div>
             """, unsafe_allow_html=True)
