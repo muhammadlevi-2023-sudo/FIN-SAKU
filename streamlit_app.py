@@ -168,24 +168,40 @@ if not st.session_state.db_transaksi.empty:
         render_report(st.session_state.db_transaksi[st.session_state.db_transaksi['Bulan'] == sel_b], f"Laporan Bulanan - {sel_b}")
 
     with t_kur:
-        # Kalkulasi KUR BRI
+        # Perhitungan Profesional
         avg_laba = st.session_state.db_transaksi['Laba'].sum() / max(1, len(st.session_state.db_transaksi['Bulan'].unique()))
+        
+        # Standar Perbankan (RPC 35%)
         rpc = avg_laba * 0.35 
-        plafon = rpc / ((1/12) + 0.005) 
+        
+        # Estimasi Plafon (Tenor 24 Bulan, Bunga 6% KUR)
+        # Rumus cepat: Plafon = rpc * 22 (asumsi faktor bunga)
+        plafon_estimasi = rpc * 22 
 
         st.markdown(f"""
         <div class="kur-card">
-            <h2 style='margin-top:0; color:#FFD700;'>🏦 Analisis Kelayakan KUR BRI</h2>
-            <table style="width:100%; font-size:18px;">
-                <tr><td>Rata-rata Laba Bulanan</td><td style="text-align:right;">{format_rp(avg_laba)}</td></tr>
-                <tr><td>Kemampuan Bayar Cicilan (RPC)</td><td style="text-align:right;">{format_rp(rpc)} /bulan</td></tr>
-                <tr style="font-size:32px; font-weight:bold; color:#FFD700;">
-                    <td>ESTIMASI PLAFON KUR</td><td style="text-align:right;">{format_rp(plafon)}</td>
+            <h2 style='margin-top:0; color:#FFD700;'>🏦 Analisis Kelayakan Kredit (Bankable)</h2>
+            <p style='font-size:16px;'>Berdasarkan <b>Repayment Capacity (RPC)</b>, berikut analisis kami:</p>
+            <table style="width:100%; font-size:18px; color:#FFD700;">
+                <tr>
+                    <td>Rata-rata Laba Bersih</td>
+                    <td style="text-align:right; color:white;">{format_rp(avg_laba)}</td>
+                </tr>
+                <tr>
+                    <td>Batas Aman Cicilan (35% Laba)</td>
+                    <td style="text-align:right; color:white;">{format_rp(rpc)} /bulan</td>
+                </tr>
+                <tr style="font-size:28px; font-weight:bold;">
+                    <td>REKOMENDASI PINJAMAN</td>
+                    <td style="text-align:right;">{format_rp(plafon_estimasi)}</td>
                 </tr>
             </table>
-            <hr style="border: 1px solid #FFD700;">
-            <p style="font-size:14px;">Aplikasi merekomendasikan Anda untuk mengajukan KUR Mikro BRI (Bunga 6%).</p>
+            <div style="background-color:rgba(255,255,255,0.1); padding:15px; border-radius:8px; margin-top:15px;">
+                <p style="font-size:14px; margin:0; color:white;">
+                <b>💡 Mengapa Angka Ini?</b><br>
+                Pinjaman ini didasarkan pada aturan perbankan agar cicilan tidak mengganggu operasional usaha Anda. 
+                Dengan laba {format_rp(avg_laba)}, Anda dianggap aman mencicil maksimal {format_rp(rpc)} per bulan.
+                </p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        st.write(" ")
-        st.download_button("📥 Download Data Bankable (CSV)", st.session_state.db_transaksi.to_csv().encode('utf-8'), "data_keuangan.csv")
