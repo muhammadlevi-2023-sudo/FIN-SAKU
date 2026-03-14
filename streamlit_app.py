@@ -114,55 +114,95 @@ if not df_all.empty:
     st.write("---")
     tab1, tab2, tab3 = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI", "⚙️ REVISI"])
     
-    with tab1:
+with tab1:
+        # Pilihan Periode
         sel_lap = st.selectbox("Pilih Periode Laporan", df_all['bulan'].unique())
         df_curr = df_all[df_all['bulan'] == sel_lap]
-        o_sum = df_curr['omzet'].sum()
-        l_kotor = df_curr['laba'].sum()
-        p_sum = df_curr['prive'].sum()
-        l_bersih = l_kotor - p_sum
         
+        # Logika Akuntansi (Sesuai Gambar)
+        o_sum = df_curr['omzet'].sum()
+        # Menghitung HPP berdasarkan margin yang diinput di sidebar
+        hpp_total = o_sum * (1 - (margin_pct/100))
+        l_operasional = o_sum - hpp_total
+        
+        p_sum = df_curr['prive'].sum()
+        
+        # Hitung Modal (Sesuai Gambar)
         idx_start = df_curr.index[0]
         untung_sebelumnya = df_all.iloc[:idx_start]['laba'].sum() - df_all.iloc[:idx_start]['prive'].sum()
         modal_awal_periode = m_awal_input + untung_sebelumnya
-        modal_akhir_periode = modal_awal_periode + l_bersih
+        modal_akhir_periode = modal_awal_periode + l_operasional - p_sum
 
+        # --- TAMPILAN DI SCREEN ---
         st.markdown(f"""
         <div class="report-card">
-            <h3 style="text-align:center;">LAPORAN LABA RUGI</h3>
-            <p style="text-align:center;">Periode: {sel_lap} {sel_thn}</p>
+            <h3 style="text-align:center;">{nama_u.upper()}</h3>
+            <p style="text-align:center; margin-top:-15px;">LAPORAN KEUANGAN BULANAN<br>Periode: {sel_lap} {sel_thn}</p>
             <hr>
-            <div style="display:flex; justify-content:space-between;"><span>Total Omzet</span><b>{format_rp(o_sum)}</b></div>
-            <div style="display:flex; justify-content:space-between;"><span>Laba Kotor</span><b>{format_rp(l_kotor)}</b></div>
-            <div style="display:flex; justify-content:space-between; color:red;"><span>Prive Pemilik</span><b>-{format_rp(p_sum)}</b></div>
-            <hr>
-            <div style="display:flex; justify-content:space-between; font-size:1.2rem;"><b>LABA BERSIH</b><b style="color:green;">{format_rp(l_bersih)}</b></div>
+            <b>I. LAPORAN LABA RUGI</b><br>
+            <div style="display:flex; justify-content:space-between;"><span>Total Pendapatan (Omzet)</span><b>{format_rp(o_sum)}</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>Beban Pokok Penjualan (HPP)</span><span style="color:red;">-{format_rp(hpp_total)}</span></div>
+            <div style="border-top:1px solid #ccc; margin:5px 0;"></div>
+            <div style="display:flex; justify-content:space-between;"><b>LABA BERSIH OPERASIONAL</b><b>{format_rp(l_operasional)}</b></div>
+            <br>
+            <b>II. LAPORAN PERUBAHAN MODAL</b><br>
+            <div style="display:flex; justify-content:space-between;"><span>Modal Awal Periode</span><b>{format_rp(modal_awal_periode)}</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>Ditambah: Laba Bersih</span><span style="color:green;">{format_rp(l_operasional)}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Dikurangi: Pengambilan Pribadi (Prive)</span><span style="color:red;">-{format_rp(p_sum)}</span></div>
+            <div style="border-top:1px solid #ccc; margin:5px 0;"></div>
+            <div style="display:flex; justify-content:space-between; font-size:1.1rem; background:#f0f2f6; padding:5px;"><b>MODAL AKHIR PERIODE</b><b>{format_rp(modal_akhir_periode)}</b></div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown(f"""
-        <div class="report-card" style="border-top-color: #002147;">
-            <h3 style="text-align:center;">LAPORAN PERUBAHAN MODAL</h3>
-            <hr>
-            <div style="display:flex; justify-content:space-between;"><span>Modal Awal (Per 1 {sel_lap})</span><b>{format_rp(modal_awal_periode)}</b></div>
-            <div style="display:flex; justify-content:space-between; color:green;"><span>Penambahan Laba Bersih</span><b>{format_rp(l_bersih)}</b></div>
-            <hr>
-            <div style="display:flex; justify-content:space-between; font-size:1.4rem; background:#FFD700; padding:10px; border-radius:5px;">
-                <b>MODAL AKHIR</b><b>{format_rp(modal_akhir_periode)}</b>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
+        # --- LOGIKA PEMBUATAN PDF (Sesuai Gambar) ---
         if st.button("📥 DOWNLOAD LAPORAN PDF"):
-            pdf = FPDF(); pdf.add_page(); pdf.set_font("Arial", 'B', 16)
-            pdf.cell(190, 10, f"LAPORAN KEUANGAN - {nama_u.upper()}", 0, 1, 'C')
+            pdf = FPDF()
+            pdf.add_page()
+            
+            # Header
+            pdf.set_font("Arial", 'B', 14)
+            pdf.cell(190, 7, nama_u.upper(), 0, 1, 'C')
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(190, 7, "LAPORAN KEUANGAN BULANAN", 0, 1, 'C')
+            pdf.set_font("Arial", '', 10)
+            pdf.cell(190, 7, f"Periode: {sel_lap} {sel_thn}", 0, 1, 'C')
+            pdf.line(10, 35, 200, 35)
             pdf.ln(10)
-            pdf.set_font("Arial", '', 12)
-            pdf.cell(100, 10, "Modal Awal Periode", 1); pdf.cell(90, 10, format_rp(modal_awal_periode), 1, 1, 'R')
-            pdf.cell(100, 10, "Laba Bersih (Net)", 1); pdf.cell(90, 10, format_rp(l_bersih), 1, 1, 'R')
-            pdf.set_font("Arial", 'B', 12)
-            pdf.cell(100, 10, "MODAL AKHIR", 1); pdf.cell(90, 10, format_rp(modal_akhir_periode), 1, 1, 'R')
-            st.download_button("Klik untuk Simpan", data=pdf.output(dest='S').encode('latin-1'), file_name=f"Laporan_{sel_lap}.pdf")
+            
+            # I. Laba Rugi
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(190, 10, "I. LAPORAN LABA RUGI", 0, 1, 'L')
+            pdf.set_font("Arial", '', 10)
+            pdf.cell(100, 8, "Total Pendapatan (Omzet)", 0, 0); pdf.cell(90, 8, format_rp(o_sum), 0, 1, 'R')
+            pdf.cell(100, 8, "Beban Pokok Penjualan (HPP)", 0, 0); pdf.cell(90, 8, f"- {format_rp(hpp_total)}", 0, 1, 'R')
+            pdf.line(110, pdf.get_y(), 200, pdf.get_y())
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(100, 10, "LABA BERSIH OPERASIONAL", 0, 0); pdf.cell(90, 10, format_rp(l_operasional), 0, 1, 'R')
+            pdf.ln(5)
+            
+            # II. Perubahan Modal
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(190, 10, "II. LAPORAN PERUBAHAN MODAL", 0, 1, 'L')
+            pdf.set_font("Arial", '', 10)
+            pdf.cell(100, 8, "Modal Awal Periode", 0, 0); pdf.cell(90, 8, format_rp(modal_awal_periode), 0, 1, 'R')
+            pdf.cell(100, 8, "Ditambah: Laba Bersih", 0, 0); pdf.cell(90, 8, format_rp(l_operasional), 0, 1, 'R')
+            pdf.cell(100, 8, "Dikurangi: Pengambilan Pribadi (Prive)", 0, 0); pdf.cell(90, 8, f"- {format_rp(p_sum)}", 0, 1, 'R')
+            pdf.line(110, pdf.get_y(), 200, pdf.get_y())
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(100, 10, "MODAL AKHIR PERIODE", 0, 0); pdf.cell(90, 10, format_rp(modal_akhir_periode), 0, 1, 'R')
+            
+            # Footer
+            pdf.ln(20)
+            pdf.set_font("Arial", 'I', 8)
+            pdf.cell(190, 10, f"Dicetak otomatis melalui FIN-Saku pada {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'C')
+            
+            # Download Button
+            st.download_button(
+                label="Klik untuk Simpan PDF",
+                data=pdf.output(dest='S').encode('latin-1'),
+                file_name=f"Laporan_{nama_u}_{sel_lap}.pdf",
+                mime="application/pdf"
+            )
 
     with tab2:
         st.subheader("🎯 Rekomendasi & Analisis Kelayakan KUR")
