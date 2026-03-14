@@ -246,7 +246,7 @@ with tab2:
             bunga_bln = (plafon_rek * 0.06) / 12
             total_cicilan = pokok_bln + bunga_bln
             
-            # Batas aman 35% dari laba rata-rata
+            # Batas aman (35% dari laba rata-rata)
             batas_aman = avg_laba * 0.35
             sisa_laba_akhir = avg_laba - total_cicilan
             rasio_sisa = (sisa_laba_akhir / avg_laba) * 100
@@ -274,7 +274,7 @@ with tab2:
                 * **Sisa Laba {rasio_sisa:.0f}%**: Ini adalah uang bersih yang tetap bisa Anda tabung atau putar kembali ke modal setelah membayar bank.
                 """)
 
-            # 6. KESIMPULAN AKHIR
+            # 6. KESIMPULAN & SARAN STRATEGIS
             st.write("---")
             if rasio_sisa >= 70:
                 st.success(f"**KESIMPULAN:** Usaha Anda **SANGAT LAYAK**. Dengan sisa laba {rasio_sisa:.0f}%, Anda masih punya cadangan kas yang sangat aman untuk kebutuhan darurat.")
@@ -283,7 +283,15 @@ with tab2:
             else:
                 st.error("**KESIMPULAN:** **BERISIKO**. Cicilan ini memakan terlalu banyak laba Anda. Bank BRI mungkin akan menyarankan plafon yang lebih kecil atau tenor yang lebih lama.")
             
-            # (Opsional) Berkas untuk dibawa ke BRI tetap bisa diletakkan di bawah sini
+            # 7. BERKAS UNTUK DIBAWA (Dibuat dalam bentuk kartu juga agar seragam)
+            st.write("📋 **BERKAS UNTUK DIBAWA KE BRI:**")
+            exp1, exp2, exp3 = st.columns(3)
+            with exp1:
+                st.markdown("""<div class="report-card"><b>Identitas</b><br><small>KTP & Kartu Keluarga asli untuk verifikasi domisili.</small></div>""", unsafe_allow_html=True)
+            with exp2:
+                st.markdown("""<div class="report-card"><b>Legalitas</b><br><small>NIB (oss.go.id) atau SKU dari Kelurahan setempat.</small></div>""", unsafe_allow_html=True)
+            with exp3:
+                st.markdown("""<div class="report-card"><b>Keuangan</b><br><small>Hasil cetak PDF Laporan Keuangan dari aplikasi FIN-Saku ini.</small></div>""", unsafe_allow_html=True)
 
     with tab3:
         st.dataframe(df_all[['id', 'tgl_data', 'omzet', 'laba']])
