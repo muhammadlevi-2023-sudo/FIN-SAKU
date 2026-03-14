@@ -240,32 +240,39 @@ if not df_all.empty:
 
         # --- RINGKASAN ANALISIS (NARASI MANUSIAWI) ---
         st.info(f"**Berdasarkan data keuangan Anda, berikut adalah rincian penjelasannya:**")
+
+        col_res1, col_res2, col_res3 = st.columns(3)
         
-        col_res1, col_res2 = st.columns(2)
         with col_res1:
             st.markdown(f"""
             <div class="report-card">
                 <b>1. Rekomendasi Pinjaman</b><br>
-                Sistem menyarankan produk <b>{produk}</b> dengan plafon sebesar <b>{format_rp(plafon)}</b>.
-
+                <p style="margin-top:5px;">Produk: <b>{produk}</b></p>
+                <p>Plafon: <b>{format_rp(plafon)}</b></p>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col_res2:
+            # Logika warna untuk indikator aman/bahaya
+            warna_cicilan = 'red' if cicilan_bln > batas_aman_cicilan else 'green'
             st.markdown(f"""
             <div class="report-card">
                 <b>2. Batas Cicilan Aman</b><br>
-                Batas Aman: {format_rp(batas_aman_cicilan)}/bln<br>
-                Cicilan Pilihan: <span style='color:{'red' if cicilan_bln > batas_aman_cicilan else 'green'}'>{format_rp(cicilan_bln)}/bln</span>
+                <p style="margin-top:5px;">Batas Aman: {format_rp(batas_aman_cicilan)}/bln</p>
+                <p>Cicilan Pilihan: <span style='color:{warna_cicilan}; font-weight:bold;'>{format_rp(cicilan_bln)}/bln</span></p>
             </div>
             """, unsafe_allow_html=True)
-            
+                    
         with col_res3:
             st.markdown(f"""
             <div class="report-card">
                 <b>3. Sisa Laba Bersih</b><br>
-                Setelah cicilan: <b>{format_rp(sisa_laba)}</b> ({rasio_sisa:.0f}%)
-                <p style='font-size:13px; color:#555;'>💡 <i>Catatan Penting: Bank menyukai sisa laba > 70% setelah cicilan agar arus kas tetap aman.</i></p>
+                <p style="margin-top:5px;">Saldo Sisa: <b>{format_rp(sisa_laba)}</b></p>
+                <p>Rasio: <b>{rasio_sisa:.0f}%</b></p>
+                <p style='font-size:11px; color:#555; line-height:1.2;'>💡 <i>Target Bank: > 70% agar kas tetap sehat.</i></p>
             </div>
             """, unsafe_allow_html=True)
-
+        
         # --- KESIMPULAN & SARAN STRATEGIS ---
         with st.expander("📖 BACA KESIMPULAN & SARAN ANALIS", expanded=True):
             st.write(f"Meskipun statusnya **'{status_k}'**, simulasi {tenor} bulan ini terlihat {'agak memaksa' if rasio_sisa < 70 else 'sangat sehat'} bagi keuangan Anda.")
