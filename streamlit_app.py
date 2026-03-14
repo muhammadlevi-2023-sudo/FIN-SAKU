@@ -140,7 +140,7 @@ if not df.empty:
                     </tr>
                 </table></div>""", unsafe_allow_html=True)
 
- with tab_kur:
+        with tab_kur:
         st.subheader(f"🏦 Analisis Kelayakan KUR BRI ({sel_b})")
         
         # --- LOGIKA PENENTUAN PRODUK KUR BRI ---
