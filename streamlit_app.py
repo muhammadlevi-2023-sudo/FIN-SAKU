@@ -223,3 +223,61 @@ if not df.empty:
             else:
                 st.info(f"**Efisiensi Kas ({prive_ratio:.1f}%)**")
                 st.write("Pengaturan Prive disiplin. Sebagian besar laba kembali menjadi modal, hal ini sangat disukai oleh Mantri BRI.")
+# --- BAGIAN TAMBAHAN: FITUR REVISI & KOREKSI DATA (TARUH DI PALING BAWAH) ---
+st.write("---")
+with st.expander("🛠️ PUSAT REVISI DATA (Edit atau Hapus Transaksi)"):
+    st.info("Pilih transaksi yang ingin diperbaiki. Modal akan otomatis menyesuaikan setelah data diperbarui.")
+    
+    # Ambil data dari database
+    df_edit = pd.read_sql_query("SELECT * FROM transaksi ORDER BY id DESC", conn)
+    
+    if not df_edit.empty:
+        # 1. Pilih ID
+        list_pilihan = [f"{row['id']} | {row['tanggal']} | Omzet: {format_rp(row['omzet'])}" for index, row in df_edit.iterrows()]
+        pilihan_user = st.selectbox("Pilih Transaksi yang akan direvisi:", list_pilihan)
+        id_target = int(pilihan_user.split(" | ")[0])
+        
+        # 2. Ambil data lama berdasarkan ID
+        data_lama = df_edit[df_edit['id'] == id_target].iloc[0]
+        
+        st.write(f"**Mengedit ID: {id_target}**")
+        
+        col_ed1, col_ed2, col_ed3 = st.columns(3)
+        with col_ed1:
+            new_tgl = st.date_input("Revisi Tanggal", datetime.strptime(data_lama['tanggal'], "%Y-%m-%d"))
+        with col_ed2:
+            new_omzet = st.number_input("Revisi Total Omzet", value=float(data_lama['omzet']), step=1000.0)
+        with col_ed3:
+            # Hitung ulang laba berdasarkan parameter HPP/Harga Jual yang aktif sekarang
+            if hrg_val > 0:
+                new_laba = new_omzet - (new_omzet * (hpp_val / hrg_val))
+            else:
+                new_laba = 0
+            st.write(f"Estimasi Laba Baru: **{format_rp(new_laba)}**")
+
+        new_prive = new_laba * (prive_pct / 100) if new_laba > 0 else 0
+        
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("✅ SIMPAN PERUBAHAN"):
+                c.execute("""UPDATE transaksi SET 
+                             tanggal = ?, bulan = ?, minggu = ?, omzet = ?, laba = ?, prive = ?
+                             WHERE id = ?""", 
+                          (new_tgl.strftime("%Y-%m-%d"), 
+                           new_tgl.strftime("%B %Y"), 
+                           f"Minggu {new_tgl.isocalendar()[1]}", 
+                           new_omzet, new_laba, new_prive, id_target))
+                conn.commit()
+                st.success(f"ID {id_target} Berhasil Diperbarui!")
+                st.rerun()
+                
+        with col_btn2:
+            if st.button("🗑️ HAPUS TRANSAKSI INI"):
+                c.execute(f"DELETE FROM transaksi WHERE id = {id_target}")
+                conn.commit()
+                st.warning(f"ID {id_target} Telah Dihapus!")
+                st.rerun()
+    else:
+        st.write("Belum ada data untuk direvisi.")
+
+# --- SELESAI BAGIAN TAMBAHAN ---
