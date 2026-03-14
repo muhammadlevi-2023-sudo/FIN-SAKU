@@ -247,6 +247,7 @@ if not df_all.empty:
             <div class="report-card">
                 <b>1. Rekomendasi Pinjaman</b><br>
                 Sistem menyarankan produk <b>{produk}</b> dengan plafon sebesar <b>{format_rp(plafon)}</b>.
+                
                 <b>2. Batas Cicilan Aman</b><br>
                 Batas Aman: {format_rp(batas_aman_cicilan)}/bln<br>
                 Cicilan Pilihan: <span style='color:{'red' if cicilan_bln > batas_aman_cicilan else 'green'}'>{format_rp(cicilan_bln)}/bln</span>
