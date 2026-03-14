@@ -50,7 +50,7 @@ total_omzet = df['omzet'].sum() if not df.empty else 0
 total_laba = df['laba'].sum() if not df.empty else 0
 total_prive = df['prive'].sum() if not df.empty else 0
 
-# --- SIDEBAR: MONITORING REALTIME ---
+# --- SIDEBAR: MONITORING & REVISI ---
 with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
@@ -70,6 +70,21 @@ with st.sidebar:
     st.markdown(f"<div class='sidebar-text'>Total Prive (Ambil): <b style='color:#ff4b4b;'>{format_rp(total_prive)}</b></div>", unsafe_allow_html=True)
     st.markdown(f"<h3 style='color:#FFD700;'>Kas Saat Ini: {format_rp(modal_sekarang)}</h3>", unsafe_allow_html=True)
     
+    # --- FITUR REVISI DI SIDEBAR (UX LEBIH OKE) ---
+    st.write("---")
+    with st.expander("🛠️ REVISI / HAPUS DATA"):
+        if not df.empty:
+            df_rev = df.sort_values(by='id', ascending=False)
+            pilih_hapus = st.selectbox("Pilih Transaksi:", [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_rev.iterrows()])
+            if st.button("Hapus Data Ini"):
+                id_hapus = int(pilih_hapus.split(' | ')[0])
+                c.execute(f"DELETE FROM transaksi WHERE id = {id_hapus}")
+                conn.commit()
+                st.success("Berhasil dihapus!")
+                st.rerun()
+        else:
+            st.write("Belum ada data.")
+
     st.write("---")
     st.subheader("⚙️ Aturan Harga")
     hpp_val = clean_to_int(st.text_input("HPP Produk", "5000"))
@@ -121,28 +136,33 @@ if not df.empty:
         db = df[df['bulan'] == sel_b]
         laba_bln = db['laba'].sum()
         prive_bln = db['prive'].sum()
+        nambah_kas = laba_bln - prive_bln
         
         st.markdown(f"""
         <div class="white-card">
             <h3 style="text-align:center;">Laporan Perubahan Modal - {sel_b}</h3>
             <hr>
-            <table style="width:100%; font-size:18px;">
+            <table style="width:100%; font-size:18px; color:black;">
                 <tr><td>1. Total Omzet (Uang Masuk)</td><td style="text-align:right;">{format_rp(db['omzet'].sum())}</td></tr>
                 <tr><td>2. Laba Bersih (Hasil Usaha)</td><td style="text-align:right; color:green;">{format_rp(laba_bln)}</td></tr>
                 <tr><td>3. Prive (Uang Diambil Pribadi)</td><td style="text-align:right; color:red;">({format_rp(prive_bln)})</td></tr>
-                <tr style="font-weight:bold; border-top:2px solid black;">
-                    <td>PENAMBAHAN MODAL KAS</td>
-                    <td style="text-align:right; border-top:2px solid black;">{format_rp(laba_bln - prive_bln)}</td>
+                <tr style="font-weight:bold; border-top:2px solid black; background-color: #f9f9f9;">
+                    <td>✅ PENAMBAHAN KAS MODAL</td>
+                    <td style="text-align:right;">{format_rp(nambah_kas)}</td>
                 </tr>
             </table>
+            <div style="margin-top:15px; padding:10px; border:1px dashed #001f3f; border-radius:10px;">
+                <p style="margin:0; font-size:14px;"><b>Analisis Pertumbuhan:</b></p>
+                <p style="margin:0; font-size:16px;">Modal Anda di bulan ini bertambah sebesar <b>{format_rp(nambah_kas)}</b>. 
+                Artinya, uang yang mengendap di kas bertumbuh sebesar <b>{((nambah_kas/modal_awal)*100) if modal_awal > 0 else 0:.1f}%</b> dari modal awal.</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
     with t_kur:
         laba_akhir = df.iloc[-1]['laba'] if not df.empty else 0
         rpc_aman = laba_akhir * 0.35 
-        plafon_hitung = (rpc_aman * 24)
-        plafon_final = plafon_hitung if plafon_hitung >= 10000000 else 10000000
+        plafon_final = (rpc_aman * 24) if (rpc_aman * 24) >= 10000000 else 10000000
         
         bunga_bln = plafon_final * 0.005
         pokok_bln = plafon_final / 24
@@ -177,17 +197,4 @@ if not df.empty:
                         <td>Total Setoran</td><td style="text-align:right;">{format_rp(total_cicilan)}</td>
                     </tr>
                 </table>
-            </div>""", unsafe_allow_html=True)
-
-        st.write("---")
-        col_list, col_edu = st.columns([1, 1])
-        with col_list:
-            st.markdown("""<div class="white-card">
-                <h4>📋 Persyaratan BRI:</h4>
-                <p>1. KTP & KK<br>2. NIB Berusaha<br>3. Laporan Laba Rugi<br>4. Bebas Tunggakan Pinjol.</p>
-            </div>""", unsafe_allow_html=True)
-        with col_edu:
-            st.markdown("""<div class="white-card">
-                <h4>💡 Tips Mantri BRI:</h4>
-                <p>Bank menyukai data yang sinkron. Gunakan laporan dari FIN-Saku untuk meyakinkan petugas bank.</p>
             </div>""", unsafe_allow_html=True)
