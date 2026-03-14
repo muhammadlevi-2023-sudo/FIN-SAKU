@@ -13,10 +13,8 @@ if 'modal_awal' not in st.session_state:
 
 # --- FUNGSI TOOLS ---
 def format_rp(angka):
-    try:
-        return "Rp {:,.0f}".format(float(angka)).replace(",", ".")
-    except:
-        return "Rp 0"
+    try: return "Rp {:,.0f}".format(float(angka)).replace(",", ".")
+    except: return "Rp 0"
 
 def play_cash_sound():
     sound_url = "https://www.soundjay.com/misc/sounds/coins-spilled-1.mp3"
@@ -26,44 +24,45 @@ def clean_to_int(teks):
     angka = "".join(filter(str.isdigit, str(teks)))
     return int(angka) if angka else 0
 
-# 2. UI CUSTOM: NAVY & GOLD (KUNCI WARNA ANTI-HILANG)
+# 2. UI CUSTOM: NAVY & GOLD (WARNA TERKUNCI MATI)
 st.markdown("""
 <style>
-    /* 1. Paksa Background Terang & Teks Navy Gelap */
+    /* Paksa Background Aplikasi Terang & Teks Gelap agar Terlihat Jelas */
     .stApp, .stApp * { color: #001f3f !important; }
 
-    /* 2. Khusus Sidebar Tetap Navy & Teks Putih */
-    [data-testid="stSidebar"], [data-testid="stSidebar"] * { color: #ffffff !important; }
+    /* Khusus Sidebar Tetap Navy & Teks Putih */
+    [data-testid="stSidebar"], [data-testid="stSidebar"] * { 
+        background-color: #001f3f !important; 
+        color: #ffffff !important; 
+    }
 
-    /* 3. Box Edukasi Kuning (Teks Hitam Tajam) */
-    .edu-box, .edu-box * { 
-        background-color: #ffffff !important;
-        color: #000000 !important; 
-        border-left: 10px solid #FFD700;
-        padding: 20px; border-radius: 12px;
+    /* Box Edukasi Kuning - Kunci Teks Hitam Tajam */
+    .edu-box { 
+        background-color: #ffffff !important; 
+        padding: 25px; border-radius: 12px; 
+        border-left: 10px solid #FFD700; 
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         margin-bottom: 25px;
     }
+    .edu-box * { color: #001f3f !important; }
 
-    /* 4. Tab Header Fix */
+    /* Tab Fix - Paksa Teks Muncul (Harian, Bulanan, dll) */
     button[data-baseweb="tab"] * { color: #001f3f !important; font-weight: bold !important; }
 
-    /* 5. Laporan Biru */
+    /* Laporan Biru (Report Card) */
     .report-card { 
-        background-color: #dbeafe !important;
-        padding: 25px; border-radius: 10px; border: 2px solid #001f3f; 
-        color: #001f3f !important;
+        background-color: #dbeafe !important; padding: 25px; 
+        border-radius: 10px; border: 2px solid #001f3f; 
     }
 
-    /* 6. Kartu KUR Bankable */
+    /* Kartu KUR (Navy-Gold) */
     .kur-card { 
-        background-color: #001f3f !important; 
-        padding: 30px; border-radius: 15px; border: 2px solid #FFD700;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        background-color: #001f3f !important; padding: 30px; 
+        border-radius: 15px; border: 2px solid #FFD700;
     }
     .kur-card * { color: #FFD700 !important; }
-    
-    /* 7. Tombol Gold */
+
+    /* Tombol Gold */
     .stButton>button { 
         background-color: #FFD700 !important; color: #001f3f !important; 
         font-weight: bold; border-radius: 8px; border: none; height: 3.5em; width: 100%;
@@ -133,7 +132,7 @@ if not st.session_state.db_transaksi.empty:
 
     def render_report(df, title):
         omz, lb, prv = df['Omzet'].sum(), df['Laba'].sum(), df['Prive'].sum()
-        modal_akhir = st.session_state.modal_awal + (st.session_state.db_transaksi['Laba'].sum() - st.session_state.db_transaksi['Prive'].sum())
+        modal_berjalan = st.session_state.modal_awal + (st.session_state.db_transaksi['Laba'].sum() - st.session_state.db_transaksi['Prive'].sum())
         
         st.markdown(f"""
         <div class="report-card">
@@ -144,19 +143,17 @@ if not st.session_state.db_transaksi.empty:
                 <tr style="border-bottom: 2px solid #001f3f; font-weight:bold;"><td>LABA BERSIH</td><td style="text-align:right;">{format_rp(lb)}</td></tr>
                 <tr style="color:#b91c1c;"><td>Ambil Pribadi (Prive)</td><td style="text-align:right;">({format_rp(prv)})</td></tr>
                 <tr style="background-color:#FFD700; font-weight:bold; font-size:20px;">
-                    <td style="padding:15px;">TOTAL MODAL BERJALAN</td><td style="text-align:right;">{format_rp(modal_akhir)}</td>
+                    <td style="padding:15px;">TOTAL MODAL BERJALAN</td><td style="text-align:right;">{format_rp(modal_berjalan)}</td>
                 </tr>
             </table>
         </div>
         """, unsafe_allow_html=True)
 
     with t_har:
+        # Menampilkan data hari ini
         df_h = st.session_state.db_transaksi[st.session_state.db_transaksi['Tanggal'] == datetime.now().date()]
-        render_report(df_h, "Laporan Hari Ini") if not df_h.empty else st.info("Belum ada transaksi hari ini.")
-
-    with t_min:
-        sel_m = st.selectbox("Pilih Minggu", st.session_state.db_transaksi['Minggu'].unique())
-        render_report(st.session_state.db_transaksi[st.session_state.db_transaksi['Minggu'] == sel_m], f"Laporan {sel_m}")
+        if not df_h.empty: render_report(df_h, "Laporan Hari Ini")
+        else: st.info("Belum ada transaksi hari ini.")
 
     with t_bul:
         sel_b = st.selectbox("Pilih Bulan", st.session_state.db_transaksi['Bulan'].unique())
@@ -169,14 +166,7 @@ if not st.session_state.db_transaksi.empty:
 
         st.markdown(f"""
         <div class="kur-card">
-            <h2>🏦 Analisis Kelayakan Kredit</h2>
+            <h2 style='margin-top:0;'>🏦 Analisis Kelayakan Kredit</h2>
             <p>Berdasarkan <b>Repayment Capacity (RPC)</b>:</p>
             <table style="width:100%; font-size:18px;">
-                <tr><td>Rata-rata Laba Bersih</td><td style="text-align:right; color:white;">{format_rp(avg_laba)}</td></tr>
-                <tr><td>Batas Aman Cicilan (35%)</td><td style="text-align:right; color:white;">{format_rp(rpc)} /bln</td></tr>
-                <tr style="font-size:28px; font-weight:bold; color:#FFD700;">
-                    <td>REKOMENDASI PINJAMAN</td><td style="text-align:right;">{format_rp(plafon)}</td>
-                </tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
+                <tr><td>Rata-rata Laba Bersih</td><td style="text-align:right;">{format_rp(avg_laba)}</td></tr>
