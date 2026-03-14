@@ -49,7 +49,6 @@ def clean_val(teks):
     return int("".join(filter(str.isdigit, str(teks)))) if teks else 0
 
 # 4. SIDEBAR: PROFIL & MODAL
-df_all = pd.read_sql_query("SELECT * FROM transaksi ORDER BY id ASC", conn)
 with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
