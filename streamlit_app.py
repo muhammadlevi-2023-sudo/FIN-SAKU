@@ -48,11 +48,15 @@ st.markdown("""
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
 jumlah_bulan_data = df['bulan'].nunique() if not df.empty else 0
 
-# --- SIDEBAR ---
+# --- SIDEBAR: PROFIL & SEKTOR USAHA ---
 with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
     nama_u = st.text_input("Nama Usaha", "UMKM Maju Bersama")
+    
+    # NEW: SEKTOR USAHA
+    sektor = st.selectbox("Sektor Usaha:", ["Kuliner (Makanan/Minuman)", "Retail (Toko Kelontong/Baju)", "Jasa (Laundry/Service)", "Produksi/Manufaktur"])
+    
     modal_awal_input = st.text_input("Uang Kas Awal (Modal)", "7000000")
     modal_awal = clean_to_int(modal_awal_input)
     
@@ -64,11 +68,32 @@ with st.sidebar:
     st.markdown(f"<h3 style='color:#FFD700;'>Kas Saat Ini:<br>{format_rp(modal_skrg_all)}</h3>", unsafe_allow_html=True)
     
     st.write("---")
+    st.subheader("⚙️ Aturan Harga & Margin")
+    hpp_val = clean_to_int(st.text_input("HPP Produk (Modal)", "5000"))
+    hrg_val = clean_to_int(st.text_input("Harga Jual", "15000"))
+    
+    # LOGIKA INTERAKTIF MARGIN PER SEKTOR
+    if hrg_val > 0:
+        margin_pct = ((hrg_val - hpp_val) / hrg_val) * 100
+        st.write(f"Margin Anda: **{margin_pct:.1f}%**")
+        
+        # Standar Margin: Kuliner (40-60%), Retail (15-25%), Jasa (50%+), Produksi (30%+)
+        if sektor == "Kuliner (Makanan/Minuman)":
+            if margin_pct < 40: st.error("❌ Terlalu Rendah. Kuliner minimal 40-50% untuk tutup biaya gas/listrik.")
+            else: st.success("✅ Sangat Baik. Margin kuliner Anda sehat.")
+        elif sektor == "Retail (Toko Kelontong/Baju)":
+            if margin_pct < 15: st.error("❌ Terlalu Rendah. Retail butuh perputaran cepat dengan margin min 15%.")
+            else: st.success("✅ Sesuai Standar Retail.")
+        elif sektor == "Jasa (Laundry/Service)":
+            if margin_pct < 50: st.warning("⚠️ Jasa biasanya punya margin > 60% karena modal utama adalah tenaga.")
+            else: st.success("✅ Margin Jasa Luar Biasa.")
+        else: # Produksi
+            if margin_pct < 30: st.error("❌ Terlalu Rendah untuk Sektor Produksi.")
+            else: st.success("✅ Margin Produksi Sehat.")
+
+    st.write("---")
     prive_pct = st.slider("Jatah Pribadi/Prive (%)", 0, 50, 30)
-    if prive_pct > 30:
-        st.warning("⚠️ **Saran Bank:** Prive > 30% dianggap kurang sehat untuk pertumbuhan modal.")
-    else:
-        st.success("✅ **Saran Bank:** Jatah prive sehat.")
+    if prive_pct > 30: st.warning("⚠️ Prive tinggi menghambat modal.")
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
@@ -78,19 +103,14 @@ col_in, col_info = st.columns([1, 1.2])
 with col_in:
     st.subheader("📝 Input Penjualan")
     tgl = st.date_input("Tanggal", datetime.now())
-    # Gunakan Aturan Harga Default atau Input Langsung
-    hpp_produk = 5000 
-    harga_jual = 15000
+    omzet_in = st.number_input("Total Omzet Penjualan", value=0, step=10000)
     
-    omzet_in = st.number_input("Total Omzet", value=0, step=10000)
-    
-    # Analisis Instan
-    biaya_hpp = omzet_in * (hpp_produk / harga_jual) if harga_jual > 0 else 0
+    biaya_hpp = omzet_in * (hpp_val / hrg_val) if hrg_val > 0 else 0
     laba_in = omzet_in - biaya_hpp
     prive_in = laba_in * (prive_pct / 100) if laba_in > 0 else 0
 
     if omzet_in > 0:
-        st.info(f"Estimasi Laba: {format_rp(laba_in)} | Prive: {format_rp(prive_in)}")
+        st.info(f"Analisis: Laba {format_rp(laba_in)} | Prive {format_rp(prive_in)}")
 
     if st.button("🔔 SIMPAN TRANSAKSI"):
         c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -99,7 +119,7 @@ with col_in:
         st.rerun()
 
 with col_info:
-    st.markdown('<div class="white-card"><h3>💡 Konsultasi Cepat</h3><p>Bank menyukai UMKM yang tertib administrasi. Catatan selama <b>3-6 bulan</b> adalah syarat mutlak KUR.</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="white-card"><h3>💡 Rekomendasi Sektor</h3><p>Untuk sektor <b>{sektor}</b>, bank sangat memperhatikan efisiensi biaya bahan baku. Jaga margin Anda agar tetap di zona hijau.</p></div>', unsafe_allow_html=True)
 
 # --- BAGIAN LAPORAN & KUR ---
 if not df.empty:
@@ -132,7 +152,7 @@ if not df.empty:
                     <tr><td>Pendapatan</td><td style="text-align:right;">{format_rp(omzet_bln)}</td></tr>
                     <tr style="color:red;"><td>Beban HPP</td><td style="text-align:right;">({format_rp(omzet_bln-laba_bln)})</td></tr>
                     <tr style="border-top:2px solid black; font-weight:bold; color:{'green' if laba_bln >= 0 else 'red'};">
-                        <td>LABA/RUGI</td><td style="text-align:right;">{format_rp(laba_bln)}</td>
+                        <td>LABA BERSIH</td><td style="text-align:right;">{format_rp(laba_bln)}</td>
                     </tr>
                 </table></div>""", unsafe_allow_html=True)
         with c_pm:
@@ -152,13 +172,10 @@ if not df.empty:
         
         if jumlah_bulan_data < 3:
             st.error(f"### 🚩 BELUM LAYAK (Butuh {3 - jumlah_bulan_data} bulan lagi)")
-            st.markdown(f"""<div class="white-card" style="border-left: 8px solid red;">
-                <h4>Analisis:</h4>
-                <p>Bank BRI mewajibkan usaha minimal berjalan 6 bulan. FIN-Saku menyarankan minimal <b>3 bulan laporan rapi</b> sebelum pengajuan.</p>
-                </div>""", unsafe_allow_html=True)
+            st.markdown(f'<div class="white-card" style="border-left: 8px solid red;">Bank BRI membutuhkan minimal 6 bulan histori usaha. FIN-Saku menyarankan <b>minimal 3 bulan laporan</b> rapi.</div>', unsafe_allow_html=True)
         elif laba_bln < 1000000:
             st.warning("### 🚩 LABA TERLALU KECIL")
-            st.markdown('<div class="white-card">Tingkatkan omzet agar laba di atas 1 Juta sebelum meminjam.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="white-card">Fokus naikkan omzet agar laba bersih di atas 1 Juta sebelum meminjam.</div>', unsafe_allow_html=True)
         else:
             st.success("### ✅ LAYAK EKSPANSI")
             plafon = 10000000 if modal_akhir_bln < 15000000 else 50000000
@@ -176,4 +193,4 @@ if not df.empty:
                 conn.commit()
                 st.rerun()
 else:
-    st.info("Silakan masukkan data transaksi pertama Anda.")
+    st.info("👋 Halo! Silakan masukkan data transaksi pertama Anda di atas.")
