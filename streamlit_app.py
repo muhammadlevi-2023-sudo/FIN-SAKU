@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(page_title="FIN-Saku: Konsultan Keuangan UMKM", layout="wide")
@@ -73,43 +73,93 @@ with st.sidebar:
     if hrg_val > 0:
         margin_pct = ((hrg_val - hpp_val) / hrg_val) * 100
         st.write(f"Margin Anda: **{margin_pct:.1f}%**")
+        
+        # LOGIKA MARGIN
+        if "Kuliner" in sektor: target, pesan = 40, "Kuliner butuh margin tinggi (min 40%) karena risiko waste."
+        elif "Retail" in sektor: target, pesan = 15, "Retail main di volume, margin 15-20% sudah cukup."
+        elif "Jasa" in sektor: target, pesan = 60, "Jasa harus margin tinggi (>60%) karena jual keahlian."
+        else: target, pesan = 30, "Produksi butuh min 30% untuk biaya penyusutan alat."
+        
+        warna_margin = "lime" if margin_pct >= target else "orange"
+        st.markdown(f"<p style='color:{warna_margin}; font-size:0.85rem;'>💡 {pesan}</p>", unsafe_allow_html=True)
     
-    prive_pct = st.slider("Jatah Pribadi/Prive (%)", 0, 50, 30)
+    st.write("---")
+    prive_pct = st.slider("Jatah Pribadi/Prive (%)", 0, 100, 30)
+    
+    # --- LOGIKA PRIVE ---
+    if prive_pct <= 30:
+        st.markdown("<p style='color:lime; font-size:0.85rem;'>✅ <b>Prive Aman:</b> Anda memutar kembali 70% laba ke modal. Usaha akan cepat besar!</p>", unsafe_allow_html=True)
+    elif prive_pct <= 50:
+        st.markdown("<p style='color:orange; font-size:0.85rem;'>⚠️ <b>Prive Sedang:</b> Laba dibagi dua dengan usaha. Pertumbuhan modal akan stabil tapi lambat.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p style='color:red; font-size:0.85rem;'>🚨 <b>Prive Bahaya:</b> Anda mengambil lebih banyak dari yang ditinggalkan. Modal usaha berisiko tergerus!</p>", unsafe_allow_html=True)
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
-rekap_mode = st.selectbox("Metode Catat:", ["Harian", "Mingguan", "Bulanan"])
+
+# --- PEMILIHAN MODE INPUT ---
+st.subheader("📝 Catat Penjualan")
+rekap_mode = st.radio("Pilih Periode Catat:", ["Harian", "Mingguan", "Bulanan"], horizontal=True)
+
 col_in, col_info = st.columns([1, 1.2])
 
 with col_in:
-    st.subheader("📝 Input Penjualan")
-    tgl = st.date_input("Tanggal", datetime.now())
-    omzet_in = st.number_input("Total Omzet Penjualan", value=0, step=10000)
+    # UI BARU: MINGGUAN PAKAI KALENDER BIAR JELAS BULANNYA
+    if rekap_mode == "Harian":
+        tgl_input = st.date_input("Pilih Tanggal", datetime.now(), key="tgl_harian")
+        val_tgl = tgl_input.strftime("%Y-%m-%d")
+        val_bulan = tgl_input.strftime("%B %Y")
+        dom = tgl_input.day
+        week_num = (dom - 1) // 7 + 1
+        val_minggu = f"Minggu ke-{week_num}"
     
+    elif rekap_mode == "Mingguan":
+        # User pilih tanggal di minggu tersebut
+        tgl_ref = st.date_input("Pilih salah satu tanggal di minggu yang dimaksud:", datetime.now(), key="tgl_minggu")
+        val_bulan = tgl_ref.strftime("%B %Y")
+        dom = tgl_ref.day
+        week_num = (dom - 1) // 7 + 1
+        val_minggu = f"Minggu ke-{week_num}"
+        val_tgl = f"Rekap {val_minggu} - {val_bulan}"
+    
+    else:
+        list_nama_bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        bulan_pilih = st.selectbox("Pilih Bulan", list_nama_bulan, index=datetime.now().month - 1)
+        val_bulan = f"{bulan_pilih} {datetime.now().year}"
+        val_tgl = f"Rekap Bulanan {val_bulan}"
+        val_minggu = "-"
+
+    omzet_in = st.number_input("Total Omzet Penjualan", value=0, step=10000)
     biaya_hpp = omzet_in * (hpp_val / hrg_val) if hrg_val > 0 else 0
     laba_in = omzet_in - biaya_hpp
     prive_in = laba_in * (prive_pct / 100) if laba_in > 0 else 0
 
     if st.button("🔔 SIMPAN TRANSAKSI"):
-        c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                  (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", omzet_in, laba_in, prive_in, rekap_mode))
-        conn.commit()
-        st.rerun()
+        if omzet_in > 0:
+            c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                      (val_tgl, val_bulan, val_minggu, omzet_in, laba_in, prive_in, rekap_mode))
+            conn.commit()
+            st.success("Data Tersimpan!")
+            st.rerun()
 
 with col_info:
-    st.markdown(f'<div class="white-card"><h3>💡 Tips Konsultan</h3><p>Sektor <b>{sektor}</b> membutuhkan konsistensi laporan minimal 3 bulan untuk dilirik Bank.</p></div>', unsafe_allow_html=True)
+    st.markdown(f"""<div class="white-card">
+        <h3>📢 Status Pencatatan</h3>
+        <p>Sistem mendeteksi ini sebagai:</p>
+        <p><b>{val_minggu}</b> pada bulan <b>{val_bulan}</b></p>
+        <hr>
+        <p>Laba Estimasi: <b>{format_rp(laba_in)}</b><br>
+        Prive (Diambil): <b>{format_rp(prive_in)}</b></p>
+    </div>""", unsafe_allow_html=True)
 
-# --- BAGIAN TABS ---
+# --- BAGIAN TABS (LOGIKA LAPORAN & KUR) ---
 if not df.empty:
     st.write("---")
     tab_rep, tab_kur, tab_rev = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI", "🛠️ REVISI"])
     
     with tab_rep:
-        df['tgl_dt'] = pd.to_datetime(df['tanggal'])
-        df = df.sort_values('tgl_dt')
         list_bulan = df['bulan'].unique().tolist()
         sel_b = st.selectbox("Pilih Bulan Laporan:", list_bulan, index=len(list_bulan)-1)
-        
         db_bulan = df[df['bulan'] == sel_b]
         omzet_bln = db_bulan['omzet'].sum()
         laba_bln = db_bulan['laba'].sum()
@@ -118,7 +168,6 @@ if not df.empty:
         idx_bulan = list_bulan.index(sel_b)
         total_laba_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['laba'].sum()
         total_prive_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['prive'].sum()
-        
         modal_awal_bln = modal_awal + total_laba_lalu - total_prive_lalu
         modal_akhir_bln = modal_awal_bln + laba_bln - prive_bln
 
@@ -130,58 +179,25 @@ if not df.empty:
 
     with tab_kur:
         st.subheader("🏦 Konsultasi Strategis KUR")
-        st.write(f"Histori Laporan: **{jumlah_bulan_data} Bulan**")
-        
         if jumlah_bulan_data < 3:
-            st.error("### 🚩 STATUS: BELUM LAYAK (DATA KURANG)")
-            st.info(f"Lengkapi catatan {3-jumlah_bulan_data} bulan lagi untuk analisis mendalam.")
+            st.error(f"### 🚩 STATUS: BELUM LAYAK (Kurang {3-jumlah_bulan_data} bulan data lagi)")
         else:
             st.success("### ✅ STATUS: SANGAT LAYAK (READY TO BANK)")
-            
-            # Perhitungan Logika
             max_cicilan_aman = laba_bln * 0.35
             plafon = 50000000 if modal_akhir_bln > 15000000 else 10000000
-            produk = "KUR Mikro BRI" if plafon > 10000000 else "KUR Super Mikro BRI"
-
-            st.markdown(f'<div class="white-card"><h4>Rekomendasi Plafon:</h4><h2>{produk}: {format_rp(plafon)}</h2><p>Batas Cicilan Aman Sistem: <b>{format_rp(max_cicilan_aman)}/bln</b></p></div>', unsafe_allow_html=True)
-            
-            tenor = st.select_slider("Pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36])
+            tenor = st.select_slider("Tenor (Bulan):", options=[12, 18, 24, 36])
             total_cicilan = (plafon / tenor) + ((plafon * 0.06) / 12)
             sisa_laba = laba_bln - total_cicilan
             persen_sisa = (sisa_laba / laba_bln) * 100
 
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown(f'<div class="white-card"><h4>Cicilan Per Bulan:</h4><h3>{format_rp(total_cicilan)}</h3></div>', unsafe_allow_html=True)
-            with col_b:
-                warna_sisa = "green" if persen_sisa >= 70 else "orange"
-                st.markdown(f'<div class="white-card"><h4>Sisa Laba Bersih:</h4><h3 style="color:{warna_sisa};">{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</h3></div>', unsafe_allow_html=True)
-
-            # --- FITUR TAMBAHAN: NARASI ANALISIS (YANG ANDA MINTA) ---
-            st.write("---")
-            st.subheader("📝 Kesimpulan Analisis Hasil (Credit Scoring)")
-            
-            narasi_status = "Sangat Layak" if persen_sisa >= 70 else "Perlu Penyesuaian"
-            
             st.markdown(f"""
-            <div class="white-card" style="border-left: 8px solid #001f3f;">
-                Berdasarkan data bulan {sel_b}, ini adalah hasil analisis kelayakan pinjaman mandiri untuk usaha Anda. 
-                Kabar baiknya, status Anda dianggap <b>"{narasi_status}"</b>, namun ada rincian penting:
-                <br><br>
-                <b>1. Rekomendasi Pinjaman:</b><br>
-                Sistem menyarankan produk <b>{produk}</b> dengan plafon <b>{format_rp(plafon)}</b>. 
-                Produk ini ditujukan untuk UMKM dengan bunga subsidi pemerintah.
-                <br><br>
-                <b>2. Analisis Batas Cicilan Aman:</b><br>
-                Sistem menghitung cicilan ideal Anda adalah <b>{format_rp(max_cicilan_aman)}/bulan</b>. 
-                Pada pilihan tenor {tenor} bulan, cicilan Anda menjadi <b>{format_rp(total_cicilan)}/bulan</b>.
-                <br><br>
-                <b>3. Sisa Laba Bersih & Arus Kas:</b><br>
-                Setelah bayar cicilan, sisa laba Anda adalah <b>{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</b>. 
-                <br><i>*Catatan: Bank menyukai sisa laba > 70% agar arus kas tetap sehat.</i>
-                <br><br>
-                <b>Kesimpulan & Saran:</b><br>
-                {"✅ Pilihan tenor sudah tepat dan aman bagi keuangan Anda." if persen_sisa >= 70 else f"⚠️ Tenor {tenor} bulan terlihat agak <b>'memaksa'</b> keuangan Anda karena sisa laba di bawah 70%. Agar lebih mudah disetujui bank, cobalah geser slider ke 24 atau 36 bulan untuk mendekati batas aman."}
+            <div class="white-card">
+                <b>Analisis Kredit:</b><br>
+                Cicilan: {format_rp(total_cicilan)}/bln<br>
+                Sisa Laba: {format_rp(sisa_laba)} ({persen_sisa:.0f}%)<br>
+                <hr>
+                <b>Saran Konsultan:</b><br>
+                {"✅ Aman!" if persen_sisa >= 70 else "⚠️ Bahaya, sisa laba terlalu tipis. Naikkan tenor!"}
             </div>
             """, unsafe_allow_html=True)
 
@@ -194,4 +210,4 @@ if not df.empty:
             conn.commit()
             st.rerun()
 else:
-    st.info("Silakan masukkan transaksi pertama Anda.")
+    st.info("Halo! Mari mulai catat transaksi pertama Anda hari ini.")
