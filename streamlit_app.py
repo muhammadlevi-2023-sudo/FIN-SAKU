@@ -53,128 +53,145 @@ with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
     nama_u = st.text_input("Nama Usaha", "UMKM Maju Bersama")
-    sektor = st.selectbox("Sektor Usaha:", ["Kuliner", "Retail", "Jasa", "Produksi"])
-    modal_awal_input = st.text_input("Modal Awal (Kas)", "7000000")
+    sektor = st.selectbox("Sektor Usaha:", ["Kuliner (Makanan/Minuman)", "Retail (Toko Kelontong/Baju)", "Jasa (Laundry/Service)", "Produksi/Manufaktur"])
+    
+    modal_awal_input = st.text_input("Uang Kas Awal (Modal)", "7000000")
     modal_awal = clean_to_int(modal_awal_input)
     
-    total_laba = df['laba'].sum() if not df.empty else 0
-    total_prive = df['prive'].sum() if not df.empty else 0
-    kas_sekarang = modal_awal + total_laba - total_prive
+    total_laba_all = df['laba'].sum() if not df.empty else 0
+    total_prive_all = df['prive'].sum() if not df.empty else 0
+    modal_skrg_all = modal_awal + total_laba_all - total_prive_all
     
-    st.markdown(f"Kas Saat Ini:<br><h2 style='color:#FFD700;'>{format_rp(kas_sekarang)}</h2>", unsafe_allow_html=True)
+    st.markdown(f"Modal Awal: **{format_rp(modal_awal)}**")
+    st.markdown(f"<h3 style='color:#FFD700;'>Kas Saat Ini:<br>{format_rp(modal_skrg_all)}</h3>", unsafe_allow_html=True)
+    
     st.write("---")
-    hpp_val = clean_to_int(st.text_input("HPP Produk", "5000"))
+    st.subheader("⚙️ Aturan Harga & Margin")
+    hpp_val = clean_to_int(st.text_input("HPP Produk (Modal)", "5000"))
     hrg_val = clean_to_int(st.text_input("Harga Jual", "15000"))
-    prive_pct = st.slider("Jatah Pribadi (%)", 0, 50, 30)
+    
+    if hrg_val > 0:
+        margin_pct = ((hrg_val - hpp_val) / hrg_val) * 100
+        st.write(f"Margin Anda: **{margin_pct:.1f}%**")
+    
+    prive_pct = st.slider("Jatah Pribadi/Prive (%)", 0, 50, 30)
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
+rekap_mode = st.selectbox("Metode Catat:", ["Harian", "Mingguan", "Bulanan"])
+col_in, col_info = st.columns([1, 1.2])
 
-# --- FITUR BARU: UI MODERN PENCATATAN ---
-st.subheader("📝 Catat Penjualan")
-rekap_mode = st.radio("Pilih Mode Pencatatan:", ["Harian", "Mingguan", "Bulanan"], horizontal=True)
-
-with st.container():
-    col1, col2, col3 = st.columns(3)
+with col_in:
+    st.subheader("📝 Input Penjualan")
+    tgl = st.date_input("Tanggal", datetime.now())
+    omzet_in = st.number_input("Total Omzet Penjualan", value=0, step=10000)
     
-    with col1:
-        if rekap_mode == "Harian":
-            input_tgl = st.date_input("Pilih Tanggal", datetime.now())
-            val_tgl = input_tgl.strftime("%Y-%m-%d")
-            val_minggu = f"Minggu {input_tgl.isocalendar()[1]}"
-            val_bulan = input_tgl.strftime("%B %Y")
-        elif rekap_mode == "Mingguan":
-            input_minggu = st.number_input("Minggu Ke- (1-52)", 1, 52, 1)
-            val_tgl = f"Periode Minggu {input_minggu}"
-            val_minggu = f"Minggu {input_minggu}"
-            val_bulan = datetime.now().strftime("%B %Y")
-        else:
-            list_bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-            sel_nama_bulan = st.selectbox("Pilih Bulan", list_bulan)
-            val_bulan = f"{sel_nama_bulan} {datetime.now().year}"
-            val_tgl = f"Rekap {val_bulan}"
-            val_minggu = "-"
+    biaya_hpp = omzet_in * (hpp_val / hrg_val) if hrg_val > 0 else 0
+    laba_in = omzet_in - biaya_hpp
+    prive_in = laba_in * (prive_pct / 100) if laba_in > 0 else 0
 
-    with col2:
-        omzet_in = st.number_input("Total Omzet", value=0, step=50000)
-    
-    with col3:
-        # Kalkulasi otomatis tetap sesuai logika Anda
-        biaya_hpp = omzet_in * (hpp_val / hrg_val) if hrg_val > 0 else 0
-        laba_in = omzet_in - biaya_hpp
-        prive_in = laba_in * (prive_pct / 100) if laba_in > 0 else 0
-        
-        st.write("") # Spacer
-        if st.button("🔔 SIMPAN DATA"):
-            if omzet_in > 0:
-                c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                          (val_tgl, val_bulan, val_minggu, omzet_in, laba_in, prive_in, rekap_mode))
-                conn.commit()
-                st.success("Data Berhasil Disimpan!")
-                st.rerun()
-            else:
-                st.warning("Masukkan Omzet terlebih dahulu!")
+    if st.button("🔔 SIMPAN TRANSAKSI"):
+        c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                  (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", omzet_in, laba_in, prive_in, rekap_mode))
+        conn.commit()
+        st.rerun()
 
-# --- BAGIAN TABS (LAPORAN, KUR, REVISI) ---
+with col_info:
+    st.markdown(f'<div class="white-card"><h3>💡 Tips Konsultan</h3><p>Sektor <b>{sektor}</b> membutuhkan konsistensi laporan minimal 3 bulan untuk dilirik Bank.</p></div>', unsafe_allow_html=True)
+
+# --- BAGIAN TABS ---
 if not df.empty:
     st.write("---")
     tab_rep, tab_kur, tab_rev = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI", "🛠️ REVISI"])
     
     with tab_rep:
-        list_bulan_laporan = df['bulan'].unique().tolist()
-        sel_b = st.selectbox("Filter Laporan Bulan:", list_bulan_laporan, index=len(list_bulan_laporan)-1)
+        df['tgl_dt'] = pd.to_datetime(df['tanggal'])
+        df = df.sort_values('tgl_dt')
+        list_bulan = df['bulan'].unique().tolist()
+        sel_b = st.selectbox("Pilih Bulan Laporan:", list_bulan, index=len(list_bulan)-1)
         
         db_bulan = df[df['bulan'] == sel_b]
         omzet_bln = db_bulan['omzet'].sum()
         laba_bln = db_bulan['laba'].sum()
         prive_bln = db_bulan['prive'].sum()
         
-        # Hitung saldo awal bulan tersebut
-        idx_b = list_bulan_laporan.index(sel_b)
-        laba_lalu = df[df['bulan'].isin(list_bulan_laporan[:idx_b])]['laba'].sum()
-        prive_lalu = df[df['bulan'].isin(list_bulan_laporan[:idx_b])]['prive'].sum()
-        m_awal_bln = modal_awal + laba_lalu - prive_lalu
-        m_akhir_bln = m_awal_bln + laba_bln - prive_bln
+        idx_bulan = list_bulan.index(sel_b)
+        total_laba_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['laba'].sum()
+        total_prive_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['prive'].sum()
+        
+        modal_awal_bln = modal_awal + total_laba_lalu - total_prive_lalu
+        modal_akhir_bln = modal_awal_bln + laba_bln - prive_bln
 
-        c1, c2 = st.columns(2)
-        with c1:
+        c_lr, c_pm = st.columns(2)
+        with c_lr:
             st.markdown(f'<div class="white-card"><h3>LABA RUGI - {sel_b}</h3><hr>Omzet: {format_rp(omzet_bln)}<br>Laba Bersih: <b>{format_rp(laba_bln)}</b></div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown(f'<div class="white-card"><h3>MODAL - {sel_b}</h3><hr>Kas Awal: {format_rp(m_awal_bln)}<br>Kas Akhir: <b>{format_rp(m_akhir_bln)}</b></div>', unsafe_allow_html=True)
+        with c_pm:
+            st.markdown(f'<div class="white-card"><h3>MODAL - {sel_b}</h3><hr>Kas Awal: {format_rp(modal_awal_bln)}<br>Kas Akhir: <b>{format_rp(modal_akhir_bln)}</b></div>', unsafe_allow_html=True)
 
     with tab_kur:
         st.subheader("🏦 Konsultasi Strategis KUR")
+        st.write(f"Histori Laporan: **{jumlah_bulan_data} Bulan**")
+        
         if jumlah_bulan_data < 3:
-            st.error("### 🚩 DATA BELUM CUKUP")
-            st.info(f"Lengkapi catatan {3-jumlah_bulan_data} bulan lagi.")
+            st.error("### 🚩 STATUS: BELUM LAYAK (DATA KURANG)")
+            st.info(f"Lengkapi catatan {3-jumlah_bulan_data} bulan lagi untuk analisis mendalam.")
         else:
             st.success("### ✅ STATUS: SANGAT LAYAK (READY TO BANK)")
-            # Logika narasi analisis Anda tetap di sini
+            
+            # Perhitungan Logika
             max_cicilan_aman = laba_bln * 0.35
-            plafon = 10000000
-            st.markdown(f'<div class="white-card">Batas Cicilan Aman: <b>{format_rp(max_cicilan_aman)}/bln</b></div>', unsafe_allow_html=True)
+            plafon = 50000000 if modal_akhir_bln > 15000000 else 10000000
+            produk = "KUR Mikro BRI" if plafon > 10000000 else "KUR Super Mikro BRI"
+
+            st.markdown(f'<div class="white-card"><h4>Rekomendasi Plafon:</h4><h2>{produk}: {format_rp(plafon)}</h2><p>Batas Cicilan Aman Sistem: <b>{format_rp(max_cicilan_aman)}/bln</b></p></div>', unsafe_allow_html=True)
             
             tenor = st.select_slider("Pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36])
             total_cicilan = (plafon / tenor) + ((plafon * 0.06) / 12)
             sisa_laba = laba_bln - total_cicilan
             persen_sisa = (sisa_laba / laba_bln) * 100
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown(f'<div class="white-card"><h4>Cicilan Per Bulan:</h4><h3>{format_rp(total_cicilan)}</h3></div>', unsafe_allow_html=True)
+            with col_b:
+                warna_sisa = "green" if persen_sisa >= 70 else "orange"
+                st.markdown(f'<div class="white-card"><h4>Sisa Laba Bersih:</h4><h3 style="color:{warna_sisa};">{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</h3></div>', unsafe_allow_html=True)
+
+            # --- FITUR TAMBAHAN: NARASI ANALISIS (YANG ANDA MINTA) ---
+            st.write("---")
+            st.subheader("📝 Kesimpulan Analisis Hasil (Credit Scoring)")
             
-            # Narasi otomatis sesuai permintaan Anda
+            narasi_status = "Sangat Layak" if persen_sisa >= 70 else "Perlu Penyesuaian"
+            
             st.markdown(f"""
-            <div class="white-card">
-                <b>Hasil Analisis Kelayakan:</b><br>
-                Sisa Laba: {format_rp(sisa_laba)} ({persen_sisa:.0f}%)<br>
-                {"✅ Aman dan layak diajukan." if persen_sisa >= 70 else "⚠️ Disarankan memperpanjang tenor agar sisa laba di atas 70%."}
+            <div class="white-card" style="border-left: 8px solid #001f3f;">
+                Berdasarkan data bulan {sel_b}, ini adalah hasil analisis kelayakan pinjaman mandiri untuk usaha Anda. 
+                Kabar baiknya, status Anda dianggap <b>"{narasi_status}"</b>, namun ada rincian penting:
+                <br><br>
+                <b>1. Rekomendasi Pinjaman:</b><br>
+                Sistem menyarankan produk <b>{produk}</b> dengan plafon <b>{format_rp(plafon)}</b>. 
+                Produk ini ditujukan untuk UMKM dengan bunga subsidi pemerintah.
+                <br><br>
+                <b>2. Analisis Batas Cicilan Aman:</b><br>
+                Sistem menghitung cicilan ideal Anda adalah <b>{format_rp(max_cicilan_aman)}/bulan</b>. 
+                Pada pilihan tenor {tenor} bulan, cicilan Anda menjadi <b>{format_rp(total_cicilan)}/bulan</b>.
+                <br><br>
+                <b>3. Sisa Laba Bersih & Arus Kas:</b><br>
+                Setelah bayar cicilan, sisa laba Anda adalah <b>{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</b>. 
+                <br><i>*Catatan: Bank menyukai sisa laba > 70% agar arus kas tetap sehat.</i>
+                <br><br>
+                <b>Kesimpulan & Saran:</b><br>
+                {"✅ Pilihan tenor sudah tepat dan aman bagi keuangan Anda." if persen_sisa >= 70 else f"⚠️ Tenor {tenor} bulan terlihat agak <b>'memaksa'</b> keuangan Anda karena sisa laba di bawah 70%. Agar lebih mudah disetujui bank, cobalah geser slider ke 24 atau 36 bulan untuk mendekati batas aman."}
             </div>
             """, unsafe_allow_html=True)
 
     with tab_rev:
         st.subheader("🛠️ Revisi Data")
         df_rev = df.sort_values(by='id', ascending=False)
-        target = st.selectbox("Pilih data:", [f"ID:{r['id']} | {r['tanggal']}" for _, r in df_rev.iterrows()])
+        target = st.selectbox("Pilih data:", [f"ID:{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_rev.iterrows()])
         if st.button("🗑️ HAPUS PERMANEN"):
             c.execute("DELETE FROM transaksi WHERE id=?", (int(target.split("|")[0].replace("ID:","")),))
             conn.commit()
             st.rerun()
 else:
-    st.info("Halo! Masukkan data transaksi pertama Anda di atas.")
+    st.info("Silakan masukkan transaksi pertama Anda.")
