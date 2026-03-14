@@ -247,7 +247,6 @@ if not df_all.empty:
             <div class="report-card">
                 <b>1. Rekomendasi Pinjaman</b><br>
                 Sistem menyarankan produk <b>{produk}</b> dengan plafon sebesar <b>{format_rp(plafon)}</b>.
-                <hr>
                 <b>2. Batas Cicilan Aman</b><br>
                 Batas Aman: {format_rp(batas_aman_cicilan)}/bln<br>
                 Cicilan Pilihan: <span style='color:{'red' if cicilan_bln > batas_aman_cicilan else 'green'}'>{format_rp(cicilan_bln)}/bln</span>
@@ -259,7 +258,6 @@ if not df_all.empty:
             <div class="report-card">
                 <b>3. Sisa Laba Bersih</b><br>
                 Setelah cicilan: <b>{format_rp(sisa_laba)}</b> ({rasio_sisa:.0f}%)
-                <hr>
                 <p style='font-size:13px; color:#555;'>💡 <i>Catatan Penting: Bank menyukai sisa laba > 70% setelah cicilan agar arus kas tetap aman.</i></p>
             </div>
             """, unsafe_allow_html=True)
