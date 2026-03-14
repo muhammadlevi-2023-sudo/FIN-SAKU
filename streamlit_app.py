@@ -27,7 +27,7 @@ def clean_to_int(teks):
     if not teks: return 0
     return int("".join(filter(str.isdigit, str(teks))))
 
-# 2. UI CUSTOM
+# 2. UI CUSTOM (NAVY & GOLD)
 st.markdown("""
 <style>
     .stApp { background-color: #001f3f !important; }
@@ -46,7 +46,7 @@ st.markdown("""
 # --- LOGIKA DATA REALTIME ---
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
 
-# --- SIDEBAR ---
+# --- SIDEBAR: PROFIL BISNIS ---
 with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
@@ -54,7 +54,6 @@ with st.sidebar:
     modal_awal_input = st.text_input("Uang Kas Awal (Modal)", "7000000")
     modal_awal = clean_to_int(modal_awal_input)
     
-    # Hitung total akumulasi untuk sidebar stat
     total_laba_all = df['laba'].sum() if not df.empty else 0
     total_prive_all = df['prive'].sum() if not df.empty else 0
     modal_skrg_all = modal_awal + total_laba_all - total_prive_all
@@ -62,6 +61,7 @@ with st.sidebar:
     st.markdown(f"Modal Awal: **{format_rp(modal_awal)}**")
     st.markdown(f"<h3 style='color:#FFD700;'>Total Kas Saat Ini:<br>{format_rp(modal_skrg_all)}</h3>", unsafe_allow_html=True)
     st.write("---")
+    st.subheader("⚙️ Aturan Harga")
     hpp_val = clean_to_int(st.text_input("HPP Produk", "5000"))
     hrg_val = clean_to_int(st.text_input("Harga Jual", "15000"))
     prive_pct = st.slider("Jatah Pribadi (%)", 0, 50, 30)
@@ -89,27 +89,24 @@ with col_in:
         st.rerun()
 
 with col_info:
-    st.markdown('<div class="white-card"><h3>💡 Info Akuntansi</h3><p>Laba Rugi mencatat kinerja <b>bulan ini saja</b>. Perubahan Modal mencatat <b>akumulasi</b> dari bulan ke bulan.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="white-card"><h3>💡 Info Akuntansi</h3><p>Uang Kas Anda akan <b>berkurang otomatis</b> jika terjadi kerugian atau pengambilan prive (uang jajan).</p></div>', unsafe_allow_html=True)
 
-# --- REVISI BAGIAN LAPORAN & KUR (AKUNTANSI BERTAHAP) ---
+# --- BAGIAN LAPORAN & KUR ---
 if not df.empty:
     st.write("---")
     tab_rep, tab_kur, tab_rev = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI", "🛠️ REVISI"])
     
     with tab_rep:
-        # 1. LOGIKA URUTAN BULAN
         df['tgl_dt'] = pd.to_datetime(df['tanggal'])
         df = df.sort_values('tgl_dt')
         list_bulan = df['bulan'].unique().tolist()
         sel_b = st.selectbox("Pilih Bulan Laporan:", list_bulan, index=len(list_bulan)-1)
         
-        # 2. LOGIKA LABA RUGI (Hanya bulan terpilih)
         db_bulan = df[df['bulan'] == sel_b]
         omzet_bln = db_bulan['omzet'].sum()
         laba_bln = db_bulan['laba'].sum()
         prive_bln = db_bulan['prive'].sum()
         
-        # 3. LOGIKA PERUBAHAN MODAL (Akumulasi Saldo)
         idx_bulan = list_bulan.index(sel_b)
         bulan_sebelumnya = list_bulan[:idx_bulan]
         total_laba_lalu = df[df['bulan'].isin(bulan_sebelumnya)]['laba'].sum()
@@ -128,7 +125,6 @@ if not df.empty:
                         <td>LABA/RUGI</td><td style="text-align:right;">{format_rp(laba_bln)}</td>
                     </tr>
                 </table></div>""", unsafe_allow_html=True)
-
         with c_pm:
             st.markdown(f"""<div class="white-card"><h3 style="text-align:center;">MODAL - {sel_b}</h3><hr>
                 <table style="width:100%;">
@@ -136,104 +132,65 @@ if not df.empty:
                     <tr><td>Laba/Rugi Bulan Ini</td><td style="text-align:right; color:{'green' if laba_bln >= 0 else 'red'};">{format_rp(laba_bln)}</td></tr>
                     <tr style="color:red;"><td>Prive</td><td style="text-align:right;">({format_rp(prive_bln)})</td></tr>
                     <tr style="border-top:2px solid black; font-weight:bold; background:#FFD700;">
-                        <td>MODAL AKHIR</td><td style="text-align:right;">{format_rp(modal_akhir_bln)}</td>
+                        <td>MODAL AKHIR (KAS)</td><td style="text-align:right;">{format_rp(modal_akhir_bln)}</td>
                     </tr>
                 </table></div>""", unsafe_allow_html=True)
 
-        with tab_kur:
+    with tab_kur:
         st.subheader(f"🏦 Analisis Kelayakan KUR BRI ({sel_b})")
         
-        # --- LOGIKA PENENTUAN PRODUK KUR BRI ---
-        # Kita pakai Modal Akhir sebagai 'jaminan' kapasitas usaha
-        # BRI biasanya melihat cicilan tidak boleh lebih dari 30-40% laba bulanan
-        kapasitas_cicilan = laba_bln * 0.4 
-        
-        # Penentuan Level Produk berdasarkan Modal Akhir & Laba
-        # 1. KUR Super Mikro (Plafon s.d 10 Juta)
-        # 2. KUR Mikro (Plafon 10 - 50 Juta)
-        # 3. KUR Kecil (Plafon 50 - 500 Juta)
-        
         if modal_akhir_bln < 5000000 or laba_bln <= 0:
-            # EFEK INTERAKTIF DITOLAK
             st.error("### ❌ STATUS: BELUM LAYAK PENGAJUAN")
             col_a, col_b = st.columns(2)
             with col_a:
                 st.markdown(f"""<div class="white-card" style="border-left: 8px solid #ff4b4b;">
                     <h4>Kenapa Belum Layak?</h4>
                     <ul>
-                        <li><b>Modal Akhir:</b> {format_rp(modal_akhir_bln)} (Min. 5 Juta)</li>
+                        <li><b>Modal Akhir:</b> {format_rp(modal_akhir_bln)} (BRI Min. 5jt)</li>
                         <li><b>Kesehatan Laba:</b> {'Rugi/Nol' if laba_bln <= 0 else 'Oke'}</li>
                     </ul>
                 </div>""", unsafe_allow_html=True)
             with col_b:
-                st.markdown(f"""<div class="white-card">
-                    <h4>Apa yang harus dilakukan?</h4>
-                    <p>1. <b>Tahan Prive:</b> Kurangi ambil uang jajan agar Kas bertumbuh.</p>
-                    <p>2. <b>Fokus Omzet:</b> Tingkatkan penjualan hingga laba stabil di atas 2 juta/bulan.</p>
-                </div>""", unsafe_allow_html=True)
-        
+                st.markdown(f"""<div class="white-card"><h4>Solusi Perbaikan:</h4>
+                    <p>Kurangi pengambilan <b>Prive</b> dan pastikan harga jual meng-cover biaya HPP agar kas bulanan tumbuh.</p></div>""", unsafe_allow_html=True)
         else:
-            # EFEK INTERAKTIF LAYAK
-            # Tentukan Plafon
-            if modal_akhir_bln >= 5000000 and modal_akhir_bln < 15000000:
-                produk = "KUR Super Mikro"
-                plafon = 10000000
-                warna_lv = "#00c8ff"
-            elif modal_akhir_bln >= 15000000 and modal_akhir_bln < 50000000:
-                produk = "KUR Mikro"
-                plafon = 50000000
-                warna_lv = "#00ff88"
+            if modal_akhir_bln < 15000000:
+                produk, plafon, warna_lv = "KUR Super Mikro", 10000000, "#00c8ff"
+            elif modal_akhir_bln < 50000000:
+                produk, plafon, warna_lv = "KUR Mikro", 50000000, "#00ff88"
             else:
-                produk = "KUR Kecil"
-                plafon = 100000000
-                warna_lv = "#FFD700"
+                produk, plafon, warna_lv = "KUR Kecil", 100000000, "#FFD700"
 
             st.success(f"### ✅ STATUS: LAYAK (Level: {produk})")
+            tenor = st.select_slider("Pilih Tenor (Bulan):", options=[12, 18, 24, 36], value=12)
             
-            # Perhitungan Cicilan (Bunga KUR 6% per tahun)
-            tenor_opsi = st.select_slider("Pilih Jangka Waktu (Tenor):", options=[12, 18, 24, 36], value=12)
-            
-            bunga_per_tahun = 0.06
-            pokok_per_bln = plafon / tenor_opsi
-            bunga_per_bln = (plafon * bunga_per_tahun) / 12
-            total_setoran = pokok_per_bln + bunga_per_bln
+            total_setoran = (plafon / tenor) + ((plafon * 0.06) / 12)
 
-            # TAMPILAN INTERAKTIF HASIL
             st.markdown(f"""
             <div class="white-card" style="border-left: 8px solid {warna_lv};">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <p style="margin:0;">Produk Pinjaman Disarankan:</p>
-                        <h2 style="color:#001f3f; margin:0;">{produk} BRI</h2>
-                    </div>
-                    <div style="text-align: right;">
-                        <p style="margin:0;">Maksimal Plafon:</p>
-                        <h2 style="color:#28a745; margin:0;">{format_rp(plafon)}</h2>
-                    </div>
+                    <div><p style="margin:0;">Produk Disarankan:</p><h2 style="color:#001f3f; margin:0;">{produk} BRI</h2></div>
+                    <div style="text-align: right;"><p style="margin:0;">Plafon Maks:</p><h2 style="color:#28a745; margin:0;">{format_rp(plafon)}</h2></div>
                 </div>
                 <hr>
                 <div style="display: flex; justify-content: space-between;">
-                    <p>Modal Terakhir Anda: <b>{format_rp(modal_akhir_bln)}</b></p>
-                    <p>Cicilan per Bulan: <b style="font-size: 20px; color:#ff4b4b;">{format_rp(total_setoran)}</b></p>
+                    <p>Kas Terakhir: <b>{format_rp(modal_akhir_bln)}</b></p>
+                    <p>Cicilan/Bulan: <b style="font-size: 20px; color:#ff4b4b;">{format_rp(total_setoran)}</b></p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            # BAGIAN EDUKASI PINJAMAN
-            exp = st.expander("🔍 Mengapa ambil KUR ini bagus & Digunakan untuk apa?")
-            exp.markdown(f"""
-            <div style="color: black;">
-            <b>1. Mengapa Bagus?</b><br>
-            Bunga KUR hanya 6% efektif per tahun (subsidi pemerintah). Ini adalah bunga termurah untuk UMKM. 
-            Dengan Modal Akhir {format_rp(modal_akhir_bln)}, Anda dianggap memiliki "bantalan" aman jika terjadi penurunan penjualan.<br><br>
-            
-            <b>2. Digunakan untuk apa?</b><br>
-            <ul>
-                <li><b>Modal Kerja:</b> Beli bahan baku dalam partai besar agar dapat diskon supplier (HPP turun).</li>
-                <li><b>Investasi:</b> Beli mesin atau alat yang bisa mempercepat produksi 2x lipat.</li>
-            </ul>
-            
-            <b>3. Mengapa Aman?</b><br>
-            Karena cicilan {format_rp(total_setoran)} hanya memakan sebagian kecil dari laba Anda. Anda masih punya sisa uang untuk operasional dan tabungan darurat.
-            </div>
-            """, unsafe_allow_html=True)
+            exp = st.expander("🔍 Detail Penggunaan Dana KUR")
+            exp.markdown(f"""<div style="color: black;">
+                <b>1. Mengapa Bagus?</b> Bunga rendah (6% setahun) karena disubsidi pemerintah.<br>
+                <b>2. Digunakan Untuk Apa?</b> Beli stok barang lebih banyak (Kulakan partai besar) atau tambah alat produksi.<br>
+                <b>3. Mengapa Aman?</b> Cicilan sudah dihitung tidak melebihi kapasitas laba bersih bulanan Anda.</div>""", unsafe_allow_html=True)
+
+    with tab_rev:
+        st.subheader("🛠️ Revisi Data")
+        df_v = df.sort_values('id', ascending=False)
+        pil = st.selectbox("Pilih data:", [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_v.iterrows()])
+        if st.button("🗑️ Hapus Data Ini"):
+            c.execute(f"DELETE FROM transaksi WHERE id={int(pil.split(' | ')[0])}"); conn.commit(); st.rerun()
+else:
+    st.info("Silakan masukkan data transaksi pertama Anda untuk melihat analisis.")
