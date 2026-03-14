@@ -21,8 +21,7 @@ def format_rp(angka):
     try:
         abs_angka = abs(float(angka))
         formatted = "{:,.0f}".format(abs_angka).replace(",", ".")
-        if angka < 0: return f"Rp -{formatted}"
-        return f"Rp {formatted}"
+        return f"Rp {formatted}" if angka >= 0 else f"Rp -{formatted}"
     except: return "Rp 0"
 
 def clean_to_int(teks):
@@ -72,7 +71,6 @@ st.markdown("""
 
 # --- LOGIKA DATA ---
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
-jumlah_bulan_data = df['bulan'].nunique() if not df.empty else 0
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -81,18 +79,35 @@ with st.sidebar:
     sektor = st.selectbox("Sektor Usaha:", ["Kuliner (Makanan/Minuman)", "Retail (Toko Kelontong/Baju)", "Jasa (Laundry/Service)", "Produksi/Manufaktur"])
     modal_awal = clean_to_int(st.text_input("Uang Kas Awal (Modal)", "7000000"))
     
-    total_laba_all = df['laba'].sum() if not df.empty else 0
-    total_prive_all = df['prive'].sum() if not df.empty else 0
-    modal_skrg_all = modal_awal + total_laba_all - total_prive_all
-    
-    st.markdown(f"Modal Awal: **{format_rp(modal_awal)}**")
-    st.markdown(f"<h3 style='color:#FFD700;'>Kas Saat Ini:<br>{format_rp(modal_skrg_all)}</h3>", unsafe_allow_html=True)
-    
     st.write("---")
     st.subheader("⚙️ Aturan Harga & Margin")
     hpp_val = clean_to_int(st.text_input("HPP Produk", "5000"))
     hrg_val = clean_to_int(st.text_input("Harga Jual", "15000"))
+    
+    # --- LOGIKA KATA-KATA MARGIN INTERAKTIF ---
+    if hrg_val > 0:
+        margin_pct = ((hrg_val - hpp_val) / hrg_val) * 100
+        st.markdown(f"Margin Anda: **{margin_pct:.1f}%**")
+        
+        if "Kuliner" in sektor:
+            target, pesan = 40, "Kuliner butuh margin tinggi (min 40%) karena risiko waste (basi)."
+        elif "Retail" in sektor:
+            target, pesan = 15, "Retail main di volume, margin 15-20% sudah cukup bagus."
+        elif "Jasa" in sektor:
+            target, pesan = 60, "Jasa harus margin tinggi (>60%) karena menjual keahlian."
+        else:
+            target, pesan = 30, "Produksi butuh min 30% untuk biaya penyusutan alat."
+        
+        warna = "lime" if margin_pct >= target else "#FFD700"
+        st.markdown(f"<p style='color:{warna}; font-size:0.85rem;'>💡 {pesan}</p>", unsafe_allow_html=True)
+    
+    st.write("---")
     prive_pct = st.slider("Jatah Pribadi/Prive (%)", 0, 50, 30)
+    # --- LOGIKA PRIVE INTERAKTIF ---
+    if prive_pct <= 30:
+        st.markdown("<p style='color:lime; font-size:0.85rem;'>✅ Prive Aman: Laba sehat untuk diputar kembali.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p style='color:#FFD700; font-size:0.85rem;'>⚠️ Prive Tinggi: Modal usaha akan lambat tumbuh jika jatah pribadi terlalu besar.</p>", unsafe_allow_html=True)
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
@@ -115,7 +130,13 @@ with col_in:
         st.rerun()
 
 with col_info:
-    st.markdown(f'<div class="white-card"><h3>💡 Tips Konsultan</h3><p>Status <b>{sektor}</b> membutuhkan data konsisten untuk disetujui Bank.</p></div>', unsafe_allow_html=True)
+    st.markdown(f"""<div class="white-card">
+        <h3>💡 Tips Konsultan</h3>
+        <p>Sektor <b>{sektor}</b> membutuhkan konsistensi data minimal 3 bulan agar layak dianalisis oleh Bank (KUR).</p>
+        <hr>
+        <p>Estimasi Laba: <b>{format_rp(laba_in)}</b></p>
+        <p>Potongan Prive: <b>{format_rp(prive_in)}</b></p>
+    </div>""", unsafe_allow_html=True)
 
 # --- BAGIAN TABS ---
 if not df.empty:
@@ -139,45 +160,38 @@ if not df.empty:
         with c_pm: st.markdown(f'<div class="white-card"><h3>MODAL</h3><hr>Kas Awal: {format_rp(m_awal_bln)}<br>Kas Akhir: <b>{format_rp(m_akhir_bln)}</b></div>', unsafe_allow_html=True)
         
         pdf_data = generate_pdf(nama_u, sel_b, o_bln, l_bln, m_awal_bln, m_akhir_bln)
-        st.download_button("📥 DOWNLOAD PDF", pdf_data, f"Laporan_{sel_b}.pdf", "application/pdf")
+        st.download_button("📥 DOWNLOAD LAPORAN (PDF)", pdf_data, f"Laporan_{sel_b}.pdf", "application/pdf")
 
     with tab_kur:
-        # (Logika KUR sesuai permintaan sebelumnya tetap di sini)
+        # Logika KUR tetap ada
         st.subheader("🏦 Konsultasi Strategis KUR")
         plafon = 50000000 if m_akhir_bln > 15000000 else 10000000
-        st.write(f"Rekomendasi Plafon: **{format_rp(plafon)}**")
+        st.write(f"Saran Plafon KUR: **{format_rp(plafon)}**")
 
     with tab_rev:
         st.subheader("🛠️ Revisi / Edit Transaksi")
-        # Pilih Data untuk di-edit
         df_rev = df.sort_values(by='id', ascending=False)
         pilihan_data = [f"ID:{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_rev.iterrows()]
-        target_str = st.selectbox("Pilih Transaksi yang akan diubah:", pilihan_data)
+        target_str = st.selectbox("Pilih Transaksi untuk diubah:", pilihan_data)
         target_id = int(target_str.split("|")[0].replace("ID:","").strip())
         
-        # Ambil data lama untuk ditampilkan di form
         data_lama = df[df['id'] == target_id].iloc[0]
         
         with st.expander("📝 Form Edit Data"):
             new_tgl = st.date_input("Ubah Tanggal", datetime.strptime(data_lama['tanggal'], "%Y-%m-%d"))
             new_omzet = st.number_input("Ubah Omzet", value=float(data_lama['omzet']))
             
-            # Hitung ulang laba & prive berdasarkan aturan terbaru di sidebar
-            new_laba = new_omzet - (new_omzet * (hpp_val / hrg_val) if hrg_val > 0 else 0)
-            new_prive = new_laba * (prive_pct / 100) if new_laba > 0 else 0
+            if st.button("✅ SIMPAN PERUBAHAN"):
+                n_laba = new_omzet - (new_omzet * (hpp_val / hrg_val) if hrg_val > 0 else 0)
+                n_prive = n_laba * (prive_pct / 100) if n_laba > 0 else 0
+                c.execute("""UPDATE transaksi SET tanggal=?, bulan=?, minggu=?, omzet=?, laba=?, prive=? WHERE id=?""",
+                          (new_tgl.strftime("%Y-%m-%d"), new_tgl.strftime("%B %Y"), f"Minggu {new_tgl.isocalendar()[1]}", 
+                           new_omzet, n_laba, n_prive, target_id))
+                conn.commit()
+                st.success("Berhasil diupdate!")
+                st.rerun()
             
-            col_rev1, col_rev2 = st.columns(2)
-            with col_rev1:
-                if st.button("✅ SIMPAN PERUBAHAN"):
-                    c.execute("""UPDATE transaksi SET tanggal=?, bulan=?, minggu=?, omzet=?, laba=?, prive=? WHERE id=?""",
-                              (new_tgl.strftime("%Y-%m-%d"), new_tgl.strftime("%B %Y"), f"Minggu {new_tgl.isocalendar()[1]}", 
-                               new_omzet, new_laba, new_prive, target_id))
-                    conn.commit()
-                    st.success("Data Berhasil Diperbarui!")
-                    st.rerun()
-            with col_rev2:
-                if st.button("🗑️ HAPUS PERMANEN"):
-                    c.execute("DELETE FROM transaksi WHERE id=?", (target_id,))
-                    conn.commit()
-                    st.warning("Data Telah Dihapus!")
-                    st.rerun()
+            if st.button("🗑️ HAPUS PERMANEN"):
+                c.execute("DELETE FROM transaksi WHERE id=?", (target_id,))
+                conn.commit()
+                st.rerun()
