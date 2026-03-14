@@ -3,11 +3,11 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 
-# 1. KONFIGURASI HALAMAN
+# 1. KONFIGURASI HALAMAN UTAMA
 st.set_page_config(page_title="FIN-Saku: Solusi KUR Digital", layout="wide")
 
 # --- DATABASE ENGINE ---
-conn = sqlite3.connect('finsaku_clean.db', check_same_thread=False)
+conn = sqlite3.connect('finsaku_final_v4.db', check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS transaksi 
              (id INTEGER PRIMARY KEY, tanggal TEXT, bulan TEXT, minggu TEXT, 
@@ -16,16 +16,18 @@ c.execute('''CREATE TABLE IF NOT EXISTS profil
              (id INTEGER PRIMARY KEY, nama_usaha TEXT, modal_awal REAL)''')
 conn.commit()
 
-# --- FUNGSI TOOLS ---
+# --- FUNGSI FORMAT RUPIAH ---
 def format_rp(angka):
-    try: return "Rp {:,.0f}".format(float(angka)).replace(",", ".")
-    except: return "Rp 0"
+    try:
+        return "Rp {:,.0f}".format(float(angka)).replace(",", ".")
+    except:
+        return "Rp 0"
 
 def clean_to_int(teks):
     angka = "".join(filter(str.isdigit, str(teks)))
     return int(angka) if angka else 0
 
-# 2. UI CUSTOM: UNAIR NAVY & GOLD
+# 2. UI CUSTOM: UNAIR NAVY & GOLD (Anti-Nyaru & Anti-Error)
 st.markdown("""
 <style>
     .stApp { background-color: #003366 !important; }
@@ -36,7 +38,6 @@ st.markdown("""
         background-color: #002244 !important; 
         border-right: 3px solid #FFD700; 
     }
-    /* KUNCI KONTRAS BOX EDUKASI */
     .edu-box { 
         background-color: #ffffff !important; 
         padding: 25px; border-radius: 15px; 
@@ -47,10 +48,9 @@ st.markdown("""
         color: #003366 !important; 
         font-weight: bold !important;
     }
-    /* KUNCI WARNA TAB */
     button[data-baseweb="tab"] p { 
         color: #FFD700 !important; 
-        font-weight: bold !important;
+        font-weight: 800 !important;
     }
     button[data-baseweb="tab"][aria-selected="true"] { 
         background-color: #FFD700 !important; 
@@ -72,177 +72,117 @@ p_data = c.fetchone()
 saved_nama = p_data[1] if p_data else "Usaha Baru"
 saved_modal = p_data[2] if p_data else 0.0
 
-# --- SIDEBAR (HANYA SATU KALI) ---
+# --- SIDEBAR: KONFIGURASI USAHA ---
 with st.sidebar:
-    st.markdown("<h1 style='text-align:center; color:#FFD700 !important;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
-    # Menggunakan key unik untuk menghindari DuplicateElementId
-    new_nama = st.text_input("Nama Usaha Anda", saved_nama, key="main_nama_usaha")
-    m_raw = st.text_input("Modal Kas Awal (Rp)", value=str(int(saved_modal)), key="main_modal_awal")
     
-    if st.button("💾 SIMPAN PROFIL", key="main_save_btn"):
+    st.subheader("🏠 Profil Usaha")
+    nama_u = st.text_input("Nama Usaha", saved_nama, key="unique_nama_u")
+    
+    modal_raw = st.text_input("Modal Kas Awal (Rp)", value=str(int(saved_modal)), key="unique_modal_u")
+    st.info(f"Tercatat: {format_rp(clean_to_int(modal_raw))}") # Fitur pembaca format angka
+    
+    if st.button("💾 SIMPAN PROFIL", key="btn_save_profil"):
         c.execute("INSERT OR REPLACE INTO profil (id, nama_usaha, modal_awal) VALUES (1, ?, ?)", 
-                  (new_nama, clean_to_int(m_raw)))
+                  (nama_u, clean_to_int(modal_raw)))
+        conn.commit()
+        st.success("Profil Disimpan!")
+        st.rerun()
+
+    st.write("---")
+    st.subheader("⚙️ Setting Produk")
+    hpp_val = st.text_input("HPP Produk (Rp)", "5000", key="unique_hpp")
+    st.caption(f"Format: {format_rp(clean_to_int(hpp_val))}")
+    
+    harga_val = st.text_input("Harga Jual (Rp)", "15000", key="unique_harga")
+    st.caption(f"Format: {format_rp(clean_to_int(harga_val))}")
+    
+    prive_pct = st.slider("Jatah Prive (%)", 0, 100, 30, key="unique_prive")
+    
+    if st.button("🗑️ RESET SEMUA DATA", key="btn_reset"):
+        c.execute("DELETE FROM transaksi")
         conn.commit()
         st.rerun()
-    
-    st.write("---")
-    hpp_raw = st.sidebar.text_input("HPP Produk (Rp)", "5000")
-    harga_raw = st.sidebar.text_input("Harga Jual (Rp)", "15000")
-    prive_pct = st.sidebar.slider("Jatah Prive (%)", 0, 100, 30)
 
 # --- HALAMAN UTAMA ---
-st.title(f"Dashboard Keuangan: {new_nama}")
+st.title(f"Pusat Data KUR: {nama_u}")
 
-st.markdown("""
+st.markdown(f"""
 <div class="edu-box">
     <h3>🔍 Mengapa FIN-Saku Membuat UMKM Bankable?</h3>
-    <p>Bank menilai kesehatan usaha Anda lewat 3 hal: <b>Karakter</b> (disiplin mencatat), <b>Kapasitas</b> (laba bersih bulanan), dan <b>Modal</b> (pengaturan arus kas).</p>
+    <p>Bank melihat 3 kriteria utama dari data yang Anda masukkan:</p>
+    <ul>
+        <li><b>Karakter:</b> Kedisiplinan Anda mencatat transaksi harian.</li>
+        <li><b>Kapasitas:</b> Laba bersih bulanan untuk membayar cicilan.</li>
+        <li><b>Modal:</b> Pemisahan uang pribadi (Prive) untuk menjaga kas usaha.</li>
+    </ul>
 </div>
 """, unsafe_allow_html=True)
 
-# --- CATAT TRANSAKSI ---
-col_in, _ = st.columns([1, 1.2])
-with col_in:
+# --- INPUT TRANSAKSI ---
+col_catat, _ = st.columns([1, 1.2])
+with col_catat:
     st.subheader("📝 Catat Penjualan")
-    tgl = st.date_input("Tanggal", datetime.now())
-    qty = st.number_input("Jumlah Unit Terjual", min_value=0)
-    if st.button("🔔 SIMPAN TRANSAKSI"):
+    tgl = st.date_input("Tanggal Transaksi", datetime.now(), key="unique_date")
+    qty = st.number_input("Jumlah Unit Terjual", min_value=0, key="unique_qty")
+    
+    if st.button("🔔 SIMPAN TRANSAKSI", key="btn_trx"):
         if qty > 0:
-            v_omzet = qty * clean_to_int(harga_raw)
-            v_laba = qty * (clean_to_int(harga_raw) - clean_to_int(hpp_raw))
-            v_prive = v_laba * (prive_pct / 100)
+            omzet = qty * clean_to_int(harga_val)
+            laba = qty * (clean_to_int(harga_val) - clean_to_int(hpp_val))
+            prive = laba * (prive_pct / 100)
             c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive) VALUES (?, ?, ?, ?, ?, ?)",
-                      (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", v_omzet, v_laba, v_prive))
+                      (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", omzet, laba, prive))
             conn.commit()
             st.rerun()
 
-# --- TAB LAPORAN ---
+# --- LAPORAN & KUR ---
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
 if not df.empty:
     st.write("---")
     t_har, t_min, t_bul, t_kur = st.tabs(["📆 HARIAN", "📅 MINGGUAN", "🗓️ BULANAN", "🏦 ANALISIS KUR"])
 
-    with t_bul:
-        sel_b = st.selectbox("Pilih Bulan", df['bulan'].unique())
-        sub_df = df[df['bulan'] == sel_b]
-        total_kas = clean_to_int(m_raw) + (df['laba'].sum() - df['prive'].sum())
-        
+    def render_data(filtered_df, judul):
+        o, l, p = filtered_df['omzet'].sum(), filtered_df['laba'].sum(), filtered_df['prive'].sum()
+        total_kas_skrg = clean_to_int(modal_raw) + (df['laba'].sum() - df['prive'].sum())
         st.markdown(f"""
-        <div style="border: 2px solid #FFD700; padding: 20px; border-radius: 10px;">
-            <h3 style='text-align:center; color:#FFD700;'>LAPORAN BULANAN: {sel_b}</h3>
-            <p>Total Laba Bersih: <b>{format_rp(sub_df['laba'].sum())}</b></p>
-            <p>Saldo Kas Akhir: <b style="color:#FFD700;">{format_rp(total_kas)}</b></p>
+        <div style="border: 2px solid #FFD700; padding: 25px; border-radius: 12px; background: rgba(255,255,255,0.05);">
+            <h3 style='text-align:center; color:#FFD700;'>{judul}</h3>
+            <hr>
+            <p>Total Omzet: <b>{format_rp(o)}</b></p>
+            <p style="color:#FFD700;">Laba Bersih: <b>{format_rp(l)}</b></p>
+            <p style="color:#ff4b4b;">Prive (Diambil): <b>({format_rp(p)})</b></p>
+            <h2 style="text-align:center; background:#FFD700; color:#003366; padding:10px; border-radius:8px;">
+                SALDO KAS: {format_rp(total_kas_skrg)}
+            </h2>
         </div>
         """, unsafe_allow_html=True)
 
-    with t_kur:
-        avg_laba = df['laba'].sum() / max(1, len(df['bulan'].unique()))
-        rpc = avg_laba * 0.35
-        plafon = rpc * 22
-        if plafon >= 5000000:
-            st.success(f"STATUS: BANKABLE! Estimasi Plafon KUR: {format_rp(plafon)}")
-        else:
-            st.warning("STATUS: BELUM LAYAK KUR. Tingkatkan laba atau kurangi prive.")
-
-if st.sidebar.button("🗑️ RESET DATA"):
-    c.execute("DELETE FROM transaksi")
-    conn.commit()
-    st.rerun()
-
-# --- PROSES DATA PROFIL ---
-c.execute("SELECT * FROM profil WHERE id=1")
-p_data = c.fetchone()
-saved_nama = p_data[1] if p_data else "Usaha Baru"
-saved_modal = p_data[2] if p_data else 0.0
-
-# --- SIDEBAR ---
-with st.sidebar:
-    st.markdown("<h1 style='text-align:center; color:#FFD700 !important;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
-    st.write("---")
-    nama_usaha = st.text_input("Nama Usaha", saved_nama)
-    m_raw = st.text_input("Modal Kas Awal (Rp)", value=str(int(saved_modal)))
-    if st.button("💾 SIMPAN PROFIL"):
-        c.execute("INSERT OR REPLACE INTO profil (id, nama_usaha, modal_awal) VALUES (1, ?, ?)", (nama_usaha, clean_to_int(m_raw)))
-        conn.commit()
-        st.success("Profil Berhasil Diperbarui!")
-    
-    st.write("---")
-    hpp_raw = st.text_input("HPP Produk (Rp)", "5000")
-    harga_raw = st.text_input("Harga Jual (Rp)", "15000")
-    prive_pct = st.slider("Jatah Prive (%)", 0, 100, 30)
-
-# --- HALAMAN UTAMA ---
-st.title(f"Dashboard Keuangan: {nama_usaha}")
-st.markdown("""<div class="edu-box"><h3>🔍 Mengapa FIN-Saku Membuat UMKM Bankable?</h3>
-<p>Bank menilai kesehatan usaha Anda lewat 3 hal: <b>Karakter</b> (disiplin mencatat), <b>Kapasitas</b> (laba bersih bulanan), dan <b>Modal</b> (pengaturan arus kas).</p></div>""", unsafe_allow_html=True)
-
-col_in, _ = st.columns([1, 1.2])
-with col_in:
-    st.subheader("📝 Catat Penjualan")
-    tgl = st.date_input("Tanggal", datetime.now())
-    qty = st.number_input("Jumlah Unit Terjual", min_value=0)
-    if st.button("🔔 SIMPAN TRANSAKSI"):
-        if qty > 0:
-            v_omzet = qty * clean_to_int(harga_raw)
-            v_laba = qty * (clean_to_int(harga_raw) - clean_to_int(hpp_raw))
-            v_prive = v_laba * (prive_pct / 100)
-            c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive) VALUES (?, ?, ?, ?, ?, ?)",
-                      (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", v_omzet, v_laba, v_prive))
-            conn.commit()
-            st.success("Data Berhasil Masuk Database!")
-            st.rerun()
-
-# --- BAGIAN ANALISIS & LAPORAN ---
-df = pd.read_sql_query("SELECT * FROM transaksi", conn)
-if not df.empty:
-    st.write("---")
-    t_har, t_min, t_bul, t_kur = st.tabs(["📆 HARIAN", "📅 MINGGUAN", "🗓️ BULANAN", "🏦 ANALISIS KUR"])
-
-    def render_laporan(data_df, judul):
-        omz, lb, prv = data_df['omzet'].sum(), data_df['laba'].sum(), data_df['prive'].sum()
-        # Perhitungan saldo kas total
-        total_kas = clean_to_int(m_raw) + (df['laba'].sum() - df['prive'].sum())
-        st.markdown(f"""<div class="report-card"><h3 style='text-align:center; color:#FFD700;'>{judul}</h3>
-        <table style="width:100%; font-size:18px;">
-        <tr><td>Total Pendapatan</td><td style="text-align:right;">{format_rp(omz)}</td></tr>
-        <tr style="color:#FFD700;"><td><b>Laba Bersih</b></td><td style="text-align:right;"><b>{format_rp(lb)}</b></td></tr>
-        <tr style="color:#ff4b4b;"><td>Prive (Konsumsi)</td><td style="text-align:right;">({format_rp(prv)})</td></tr>
-        <tr style="background-color:#FFD700; color:#003366; font-weight:bold; font-size:20px;">
-        <td style="padding:10px;">SALDO KAS SAAT INI</td><td style="text-align:right; padding:10px;">{format_rp(total_kas)}</td></tr></table></div>""", unsafe_allow_html=True)
-
     with t_har:
-        sel_tgl = st.date_input("Filter Hari", datetime.now())
-        df_h = df[df['tanggal'] == sel_tgl.strftime("%Y-%m-%d")]
-        if not df_h.empty: render_laporan(df_h, f"Laporan Harian - {sel_tgl.strftime('%d/%m/%Y')}")
-        else: st.info("Tidak ada transaksi pada tanggal ini.")
+        sel_t = st.date_input("Pilih Hari", datetime.now(), key="filter_harian")
+        render_data(df[df['tanggal'] == sel_t.strftime("%Y-%m-%d")], f"Laporan Hari {sel_t.strftime('%d/%m/%Y')}")
 
     with t_min:
-        sel_m = st.selectbox("Pilih Minggu", df['minggu'].unique())
-        render_laporan(df[df['minggu'] == sel_m], f"Laporan {sel_m}")
+        sel_m = st.selectbox("Pilih Minggu", df['minggu'].unique(), key="filter_minggu")
+        render_data(df[df['minggu'] == sel_m], f"Laporan {sel_m}")
 
     with t_bul:
-        sel_b = st.selectbox("Pilih Bulan", df['bulan'].unique())
-        render_laporan(df[df['bulan'] == sel_b], f"Laporan {sel_b}")
+        sel_b = st.selectbox("Pilih Bulan", df['bulan'].unique(), key="filter_bulan")
+        render_data(df[df['bulan'] == sel_b], f"Laporan {sel_b}")
 
     with t_kur:
-        # Logika KUR: Rata-rata laba per bulan
-        avg_laba = df['laba'].sum() / max(1, len(df['bulan'].unique()))
-        rpc = avg_laba * 0.35  # Batas cicilan aman 35% laba
-        plafon = rpc * 22       # Estimasi plafon tenor 2 tahun
+        # LOGIKA ANALISIS KUR
+        avg_laba = df.groupby('bulan')['laba'].sum().mean()
+        rpc = avg_laba * 0.35 # Batas cicilan aman 35% laba
+        plafon = rpc * 22     # Estimasi plafon tenor 2 tahun
         
         if plafon >= 5000000:
-            st.markdown(f"""<div class="kur-card"><h2>✅ STATUS: BANKABLE</h2>
-            <p>Berdasarkan data Anda, estimasi plafon KUR: <b>{format_rp(plafon)}</b></p>
-            <p>Rekomendasi cicilan maksimal: {format_rp(rpc)}/bulan</p></div>""", unsafe_allow_html=True)
+            st.success(f"STATUS: ✅ BANKABLE (LAYAK KUR)")
+            st.markdown(f"""<div style="background:#FFD700; color:#003366; padding:20px; border-radius:15px;">
+            <h3>Estimasi Plafon: {format_rp(plafon)}</h3>
+            <p>Cicilan Aman Maksimal: <b>{format_rp(rpc)}/bulan</b></p>
+            </div>""", unsafe_allow_html=True)
         else:
-            st.markdown(f"""<div class="kur-card" style="background-color:#ff4b4b !important;">
-            <h2 style="color:white !important;">⚠️ BELUM LAYAK KUR</h2>
-            <p style="color:white !important;">Kapasitas bayar Anda saat ini masih di bawah standar minimal plafon Bank ({format_rp(5000000)}).</p></div>
-            <div style="background-color:rgba(255,255,255,0.1); padding:15px; border-radius:10px; margin-top:15px;">
-            <b>💡 Saran Inovatif:</b> Tingkatkan volume penjualan atau kurangi persentase Prive untuk memperkuat profil kapasitas bayar usaha Anda.</div>""", unsafe_allow_html=True)
-
-if st.sidebar.button("🗑️ RESET SEMUA DATA"):
-    c.execute("DELETE FROM transaksi")
-    conn.commit()
-    st.rerun()
+            st.error("STATUS: ⚠️ BELUM LAYAK KUR")
+            st.info("Saran: Kurangi persentase Prive atau tingkatkan omzet untuk memperbesar kapasitas bayar (RPC).")
