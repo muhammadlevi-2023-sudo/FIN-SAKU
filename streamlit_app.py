@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import datetime, timedelta
+from fpdf import FPDF
+import io
 
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(page_title="FIN-Saku: Konsultan Keuangan UMKM", layout="wide")
@@ -26,6 +28,44 @@ def format_rp(angka):
 def clean_to_int(teks):
     if not teks: return 0
     return int("".join(filter(str.isdigit, str(teks))))
+
+# --- FUNGSI GENERATE PDF ---
+def generate_pdf(nama_usaha, periode, omzet, laba, prive, modal_awal, modal_akhir):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Header
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(190, 10, f"LAPORAN KEUANGAN: {nama_usaha.upper()}", ln=True, align='C')
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(190, 10, f"Periode: {periode}", ln=True, align='C')
+    pdf.ln(10)
+    pdf.line(10, 35, 200, 35)
+    pdf.ln(5)
+
+    # Konten Laporan
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(100, 10, "Deskripsi", border=1)
+    pdf.cell(90, 10, "Nilai", border=1, ln=True, align='C')
+    
+    pdf.set_font("Arial", '', 12)
+    data = [
+        ("Total Omzet", format_rp(omzet)),
+        ("Laba Bersih", format_rp(laba)),
+        ("Prive (Penarikan Pribadi)", format_rp(prive)),
+        ("Kas/Modal Awal", format_rp(modal_awal)),
+        ("Kas/Modal Akhir", format_rp(modal_akhir))
+    ]
+    
+    for desc, val in data:
+        pdf.cell(100, 10, desc, border=1)
+        pdf.cell(90, 10, val, border=1, ln=True, align='R')
+    
+    pdf.ln(20)
+    pdf.set_font("Arial", 'I', 10)
+    pdf.cell(190, 10, f"Dicetak pada: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", align='R')
+    
+    return pdf.output(dest='S').encode('latin-1')
 
 # 2. UI CUSTOM (NAVY & GOLD)
 st.markdown("""
@@ -74,7 +114,6 @@ with st.sidebar:
         margin_pct = ((hrg_val - hpp_val) / hrg_val) * 100
         st.write(f"Margin Anda: **{margin_pct:.1f}%**")
         
-        # LOGIKA MARGIN
         if "Kuliner" in sektor: target, pesan = 40, "Kuliner butuh margin tinggi (min 40%) karena risiko waste."
         elif "Retail" in sektor: target, pesan = 15, "Retail main di volume, margin 15-20% sudah cukup."
         elif "Jasa" in sektor: target, pesan = 60, "Jasa harus margin tinggi (>60%) karena jual keahlian."
@@ -85,14 +124,6 @@ with st.sidebar:
     
     st.write("---")
     prive_pct = st.slider("Jatah Pribadi/Prive (%)", 0, 100, 30)
-    
-    # --- LOGIKA PRIVE ---
-    if prive_pct <= 30:
-        st.markdown("<p style='color:lime; font-size:0.85rem;'>✅ <b>Prive Aman:</b> Anda memutar kembali 70% laba ke modal. Usaha akan cepat besar!</p>", unsafe_allow_html=True)
-    elif prive_pct <= 50:
-        st.markdown("<p style='color:orange; font-size:0.85rem;'>⚠️ <b>Prive Sedang:</b> Laba dibagi dua dengan usaha. Pertumbuhan modal akan stabil tapi lambat.</p>", unsafe_allow_html=True)
-    else:
-        st.markdown("<p style='color:red; font-size:0.85rem;'>🚨 <b>Prive Bahaya:</b> Anda mengambil lebih banyak dari yang ditinggalkan. Modal usaha berisiko tergerus!</p>", unsafe_allow_html=True)
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
@@ -104,7 +135,6 @@ rekap_mode = st.radio("Pilih Periode Catat:", ["Harian", "Mingguan", "Bulanan"],
 col_in, col_info = st.columns([1, 1.2])
 
 with col_in:
-    # UI BARU: MINGGUAN PAKAI KALENDER BIAR JELAS BULANNYA
     if rekap_mode == "Harian":
         tgl_input = st.date_input("Pilih Tanggal", datetime.now(), key="tgl_harian")
         val_tgl = tgl_input.strftime("%Y-%m-%d")
@@ -114,7 +144,6 @@ with col_in:
         val_minggu = f"Minggu ke-{week_num}"
     
     elif rekap_mode == "Mingguan":
-        # User pilih tanggal di minggu tersebut
         tgl_ref = st.date_input("Pilih salah satu tanggal di minggu yang dimaksud:", datetime.now(), key="tgl_minggu")
         val_bulan = tgl_ref.strftime("%B %Y")
         dom = tgl_ref.day
@@ -176,6 +205,15 @@ if not df.empty:
             st.markdown(f'<div class="white-card"><h3>LABA RUGI - {sel_b}</h3><hr>Omzet: {format_rp(omzet_bln)}<br>Laba Bersih: <b>{format_rp(laba_bln)}</b></div>', unsafe_allow_html=True)
         with c_pm:
             st.markdown(f'<div class="white-card"><h3>MODAL - {sel_b}</h3><hr>Kas Awal: {format_rp(modal_awal_bln)}<br>Kas Akhir: <b>{format_rp(modal_akhir_bln)}</b></div>', unsafe_allow_html=True)
+        
+        # TOMBOL CETAK PDF
+        pdf_data = generate_pdf(nama_u, sel_b, omzet_bln, laba_bln, prive_bln, modal_awal_bln, modal_akhir_bln)
+        st.download_button(
+            label="📥 Download Laporan PDF",
+            data=pdf_data,
+            file_name=f"Laporan_Keuangan_{nama_u}_{sel_b}.pdf",
+            mime="application/pdf"
+        )
 
     with tab_kur:
         st.subheader("🏦 Konsultasi Strategis KUR")
