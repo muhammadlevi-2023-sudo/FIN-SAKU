@@ -35,12 +35,12 @@ with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/2/2e/BRI_Logo.svg", width=100)
     st.header("⚙️ Pengaturan Dasar")
     nama_usaha = st.text_input("Nama Usaha", "PT. Enggan Mundur")
-    st.session_state.modal_awal = st.number_input("💰 Modal Awal (Cash)", min_value=0.0, step=2,500,000, value=st.session_state.modal_awal)
+    st.session_state.modal_awal = st.number_input("💰 Modal Awal (Cash)", min_value=0,0, step=2,500,000, value=st.session_state.modal_awal)
     
     st.write("---")
     st.subheader("📦 Strategi Harga")
-    hpp = st.number_input("HPP per Unit", min_value=0, step=500, value=5,000)
-    harga_jual = st.number_input("Harga Jual per Unit", min_value=0, step=500, value=15,000)
+    hpp = st.number_input("HPP per Unit", min_value=0,0, step=500, value=5,000)
+    harga_jual = st.number_input("Harga Jual per Unit", min_value=0,0, step=500, value=15,000)
     porsi_pribadi_persen = st.slider("Jatah Pribadi (%)", 0, 100, 30)
 
 # --- HALAMAN UTAMA: INPUT ---
