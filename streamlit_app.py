@@ -140,32 +140,100 @@ if not df.empty:
                     </tr>
                 </table></div>""", unsafe_allow_html=True)
 
-    with tab_kur:
-        st.subheader(f"🕵️ Analisis KUR BRI (Data {sel_b})")
-        # Dasar Penilaian: Modal Akhir bulan terpilih & Laba bulan tersebut
-        plafon_maks = modal_akhir_bln * 0.5 
+ with tab_kur:
+        st.subheader(f"🏦 Analisis Kelayakan KUR BRI ({sel_b})")
         
-        if modal_akhir_bln < 5000000:
-            st.error("### ❌ STATUS: DITOLAK")
-            st.markdown(f'<div class="white-card" style="border-left:8px solid red;"><h4>Kenapa?</h4><p>Modal Akhir Anda {format_rp(modal_akhir_bln)} masih di bawah batas aman BRI (Min. 5jt).</p><p><b>Solusi:</b> Tekan Prive (ambil uang jajan) dan biarkan laba mengendap jadi modal.</p></div>', unsafe_allow_html=True)
-        elif laba_bln <= 0:
-            st.warning("### ⚠️ STATUS: DITANGGUHKAN")
-            st.markdown(f'<div class="white-card" style="border-left:8px solid orange;"><h4>Masalah:</h4><p>Usaha Anda Rugi di bulan ini. Bank tidak akan meminjamkan uang jika operasional masih minus.</p></div>', unsafe_allow_html=True)
-        else:
-            st.success(f"### ✅ STATUS: LAYAK (Estimasi Plafon {format_rp(plafon_maks)})")
-            tenor = 12
-            cicilan = (plafon_maks / tenor) + (plafon_maks * 0.005)
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown(f"""<div class="white-card"><h4>Simulasi Pinjaman</h4>
-                    <p>Plafon: <b>{format_rp(plafon_maks)}</b></p>
-                    <p>Cicilan/bln: <b>{format_rp(cicilan)}</b> (Tenor {tenor} bln)</p>
+        # --- LOGIKA PENENTUAN PRODUK KUR BRI ---
+        # Kita pakai Modal Akhir sebagai 'jaminan' kapasitas usaha
+        # BRI biasanya melihat cicilan tidak boleh lebih dari 30-40% laba bulanan
+        kapasitas_cicilan = laba_bln * 0.4 
+        
+        # Penentuan Level Produk berdasarkan Modal Akhir & Laba
+        # 1. KUR Super Mikro (Plafon s.d 10 Juta)
+        # 2. KUR Mikro (Plafon 10 - 50 Juta)
+        # 3. KUR Kecil (Plafon 50 - 500 Juta)
+        
+        if modal_akhir_bln < 5000000 or laba_bln <= 0:
+            # EFEK INTERAKTIF DITOLAK
+            st.error("### ❌ STATUS: BELUM LAYAK PENGAJUAN")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown(f"""<div class="white-card" style="border-left: 8px solid #ff4b4b;">
+                    <h4>Kenapa Belum Layak?</h4>
+                    <ul>
+                        <li><b>Modal Akhir:</b> {format_rp(modal_akhir_bln)} (Min. 5 Juta)</li>
+                        <li><b>Kesehatan Laba:</b> {'Rugi/Nol' if laba_bln <= 0 else 'Oke'}</li>
+                    </ul>
                 </div>""", unsafe_allow_html=True)
-            with c2:
-                st.markdown('<div class="white-card"><h4>🚀 Tips Mantri BRI</h4><p>Gunakan dana ini untuk beli bahan baku dalam jumlah besar agar HPP turun dan laba naik!</p></div>', unsafe_allow_html=True)
+            with col_b:
+                st.markdown(f"""<div class="white-card">
+                    <h4>Apa yang harus dilakukan?</h4>
+                    <p>1. <b>Tahan Prive:</b> Kurangi ambil uang jajan agar Kas bertumbuh.</p>
+                    <p>2. <b>Fokus Omzet:</b> Tingkatkan penjualan hingga laba stabil di atas 2 juta/bulan.</p>
+                </div>""", unsafe_allow_html=True)
+        
+        else:
+            # EFEK INTERAKTIF LAYAK
+            # Tentukan Plafon
+            if modal_akhir_bln >= 5000000 and modal_akhir_bln < 15000000:
+                produk = "KUR Super Mikro"
+                plafon = 10000000
+                warna_lv = "#00c8ff"
+            elif modal_akhir_bln >= 15000000 and modal_akhir_bln < 50000000:
+                produk = "KUR Mikro"
+                plafon = 50000000
+                warna_lv = "#00ff88"
+            else:
+                produk = "KUR Kecil"
+                plafon = 100000000
+                warna_lv = "#FFD700"
 
-    with tab_rev:
-        df_v = df.sort_values('id', ascending=False)
-        pil = st.selectbox("Pilih hapus:", [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_v.iterrows()])
-        if st.button("🗑️ Hapus"):
-            c.execute(f"DELETE FROM transaksi WHERE id={int(pil.split(' | ')[0])}"); conn.commit(); st.rerun()
+            st.success(f"### ✅ STATUS: LAYAK (Level: {produk})")
+            
+            # Perhitungan Cicilan (Bunga KUR 6% per tahun)
+            tenor_opsi = st.select_slider("Pilih Jangka Waktu (Tenor):", options=[12, 18, 24, 36], value=12)
+            
+            bunga_per_tahun = 0.06
+            pokok_per_bln = plafon / tenor_opsi
+            bunga_per_bln = (plafon * bunga_per_tahun) / 12
+            total_setoran = pokok_per_bln + bunga_per_bln
+
+            # TAMPILAN INTERAKTIF HASIL
+            st.markdown(f"""
+            <div class="white-card" style="border-left: 8px solid {warna_lv};">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <p style="margin:0;">Produk Pinjaman Disarankan:</p>
+                        <h2 style="color:#001f3f; margin:0;">{produk} BRI</h2>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="margin:0;">Maksimal Plafon:</p>
+                        <h2 style="color:#28a745; margin:0;">{format_rp(plafon)}</h2>
+                    </div>
+                </div>
+                <hr>
+                <div style="display: flex; justify-content: space-between;">
+                    <p>Modal Terakhir Anda: <b>{format_rp(modal_akhir_bln)}</b></p>
+                    <p>Cicilan per Bulan: <b style="font-size: 20px; color:#ff4b4b;">{format_rp(total_setoran)}</b></p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # BAGIAN EDUKASI PINJAMAN
+            exp = st.expander("🔍 Mengapa ambil KUR ini bagus & Digunakan untuk apa?")
+            exp.markdown(f"""
+            <div style="color: black;">
+            <b>1. Mengapa Bagus?</b><br>
+            Bunga KUR hanya 6% efektif per tahun (subsidi pemerintah). Ini adalah bunga termurah untuk UMKM. 
+            Dengan Modal Akhir {format_rp(modal_akhir_bln)}, Anda dianggap memiliki "bantalan" aman jika terjadi penurunan penjualan.<br><br>
+            
+            <b>2. Digunakan untuk apa?</b><br>
+            <ul>
+                <li><b>Modal Kerja:</b> Beli bahan baku dalam partai besar agar dapat diskon supplier (HPP turun).</li>
+                <li><b>Investasi:</b> Beli mesin atau alat yang bisa mempercepat produksi 2x lipat.</li>
+            </ul>
+            
+            <b>3. Mengapa Aman?</b><br>
+            Karena cicilan {format_rp(total_setoran)} hanya memakan sebagian kecil dari laba Anda. Anda masih punya sisa uang untuk operasional dan tabungan darurat.
+            </div>
+            """, unsafe_allow_html=True)
