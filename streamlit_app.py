@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import datetime
+from fpdf import FPDF
 
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(page_title="FIN-Saku: Konsultan Keuangan UMKM", layout="wide")
@@ -39,6 +40,12 @@ st.markdown("""
         color: #000000 !important;
     }
     .white-card *, .white-card p, .white-card b, .white-card h3, .white-card td { color: #000000 !important; }
+    .report-card {
+        background: #FFFFFF; padding: 25px; border-radius: 12px;
+        border-top: 10px solid #FFD700; color: #333 !important;
+        margin-bottom: 20px; box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+    }
+    .report-card h3, .report-card b, .report-card span, .report-card p { color: #002147 !important; }
     .stButton>button { background-color: #FFD700 !important; color: #000 !important; font-weight: bold; width: 100%; border-radius: 8px; }
     section[data-testid="stSidebar"] { background-color: #00152b !important; border-right: 1px solid #FFD700; }
 </style>
@@ -55,8 +62,8 @@ with st.sidebar:
     nama_u = st.text_input("Nama Usaha", "UMKM Maju Bersama")
     sektor = st.selectbox("Sektor Usaha:", ["Kuliner (Makanan/Minuman)", "Retail (Toko Kelontong/Baju)", "Jasa (Laundry/Service)", "Produksi/Manufaktur"])
     
-    modal_awal_input = st.text_input("Uang Kas Awal (Modal)", "7000000")
-    modal_awal = clean_to_int(modal_awal_input)
+    modal_awal_input_raw = st.text_input("Uang Kas Awal (Modal)", "7000000")
+    modal_awal = clean_to_int(modal_awal_input_raw)
     
     total_laba_all = df['laba'].sum() if not df.empty else 0
     total_prive_all = df['prive'].sum() if not df.empty else 0
@@ -70,6 +77,7 @@ with st.sidebar:
     hpp_val = clean_to_int(st.text_input("HPP Produk (Modal)", "5000"))
     hrg_val = clean_to_int(st.text_input("Harga Jual", "15000"))
     
+    margin_pct = 0
     if hrg_val > 0:
         margin_pct = ((hrg_val - hpp_val) / hrg_val) * 100
         st.write(f"Margin Anda: **{margin_pct:.1f}%**")
@@ -105,28 +113,103 @@ if not df.empty:
     tab_rep, tab_kur, tab_rev = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI", "🛠️ REVISI"])
     
     with tab_rep:
+        # LOGIKA REVISI TAB 1
         df['tgl_dt'] = pd.to_datetime(df['tanggal'])
         df = df.sort_values('tgl_dt')
-        list_bulan = df['bulan'].unique().tolist()
-        sel_b = st.selectbox("Pilih Bulan Laporan:", list_bulan, index=len(list_bulan)-1)
         
-        db_bulan = df[df['bulan'] == sel_b]
-        omzet_bln = db_bulan['omzet'].sum()
-        laba_bln = db_bulan['laba'].sum()
-        prive_bln = db_bulan['prive'].sum()
+        sel_lap = st.selectbox("Pilih Periode Laporan", df['bulan'].unique())
+        df_curr = df[df['bulan'] == sel_lap]
         
-        idx_bulan = list_bulan.index(sel_b)
-        total_laba_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['laba'].sum()
-        total_prive_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['prive'].sum()
+        # Ambil tahun dari data terpilih untuk PDF
+        sel_thn = pd.to_datetime(df_curr['tanggal'].iloc[0]).year
         
-        modal_awal_bln = modal_awal + total_laba_lalu - total_prive_lalu
-        modal_akhir_bln = modal_awal_bln + laba_bln - prive_bln
+        # 2. Logika Akuntansi (Sesuai Standar Gambar)
+        o_sum = df_curr['omzet'].sum()
+        hpp_total = o_sum * (1 - (margin_pct/100))
+        l_operasional = o_sum - hpp_total
+        p_sum = df_curr['prive'].sum()
+        
+        # 3. Hitung Modal (Sesuai Gambar)
+        idx_start_val = df_curr.index[0]
+        # Hitung untung akumulasi sebelum bulan ini
+        df_sebelumnya = df[df['tgl_dt'] < df_curr['tgl_dt'].min()]
+        untung_sebelumnya = df_sebelumnya['laba'].sum() - df_sebelumnya['prive'].sum()
+        
+        modal_awal_periode = modal_awal + untung_sebelumnya
+        modal_akhir_periode = modal_awal_periode + l_operasional - p_sum
 
-        c_lr, c_pm = st.columns(2)
-        with c_lr:
-            st.markdown(f'<div class="white-card"><h3>LABA RUGI - {sel_b}</h3><hr>Omzet: {format_rp(omzet_bln)}<br>Laba Bersih: <b>{format_rp(laba_bln)}</b></div>', unsafe_allow_html=True)
-        with c_pm:
-            st.markdown(f'<div class="white-card"><h3>MODAL - {sel_b}</h3><hr>Kas Awal: {format_rp(modal_awal_bln)}<br>Kas Akhir: <b>{format_rp(modal_akhir_bln)}</b></div>', unsafe_allow_html=True)
+        # --- TAMPILAN INTERFACE (Visual Report) ---
+        st.markdown(f"""
+        <div class="report-card">
+            <h3 style="text-align:center;">{nama_u.upper()}</h3>
+            <p style="text-align:center; margin-top:-15px;">LAPORAN KEUANGAN BULANAN<br>Periode: {sel_lap}</p>
+            <hr>
+            <b>I. LAPORAN LABA RUGI</b><br>
+            <div style="display:flex; justify-content:space-between;"><span>Total Pendapatan (Omzet)</span><b>{format_rp(o_sum)}</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>Beban Pokok Penjualan (HPP)</span><span style="color:red;">-{format_rp(hpp_total)}</span></div>
+            <div style="border-top:1px solid #ccc; margin:5px 0;"></div>
+            <div style="display:flex; justify-content:space-between;"><b>LABA BERSIH OPERASIONAL</b><b>{format_rp(l_operasional)}</b></div>
+            <br>
+            <b>II. LAPORAN PERUBAHAN MODAL</b><br>
+            <div style="display:flex; justify-content:space-between;"><span>Modal Awal Periode</span><b>{format_rp(modal_awal_periode)}</b></div>
+            <div style="display:flex; justify-content:space-between;"><span>Ditambah: Laba Bersih</span><span style="color:green;">{format_rp(l_operasional)}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Dikurangi: Pengambilan Pribadi (Prive)</span><span style="color:red;">-{format_rp(p_sum)}</span></div>
+            <div style="border-top:1px solid #ccc; margin:5px 0;"></div>
+            <div style="display:flex; justify-content:space-between; font-size:1.1rem; background:#f0f2f6; padding:5px; border-radius:5px;">
+                <b>MODAL AKHIR PERIODE</b><b>{format_rp(modal_akhir_periode)}</b>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # --- LOGIKA PEMBUATAN PDF (Persis Format Gambar) ---
+        if st.button("📥 DOWNLOAD LAPORAN PDF"):
+            pdf = FPDF()
+            pdf.add_page()
+            
+            # Header Laporan
+            pdf.set_font("Arial", 'B', 14)
+            pdf.cell(190, 7, nama_u.upper(), 0, 1, 'C')
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(190, 7, "LAPORAN KEUANGAN BULANAN", 0, 1, 'C')
+            pdf.set_font("Arial", '', 10)
+            pdf.cell(190, 7, f"Periode: {sel_lap} {sel_thn}", 0, 1, 'C')
+            pdf.line(10, 35, 200, 35)
+            pdf.ln(10)
+            
+            # Bagian I: Laba Rugi
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(190, 10, "I. LAPORAN LABA RUGI", 0, 1, 'L')
+            pdf.set_font("Arial", '', 10)
+            pdf.cell(100, 8, "Total Pendapatan (Omzet)", 0, 0); pdf.cell(90, 8, format_rp(o_sum), 0, 1, 'R')
+            pdf.cell(100, 8, "Beban Pokok Penjualan (HPP)", 0, 0); pdf.cell(90, 8, f"- {format_rp(hpp_total)}", 0, 1, 'R')
+            pdf.line(110, pdf.get_y(), 200, pdf.get_y())
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(100, 10, "LABA BERSIH OPERASIONAL", 0, 0); pdf.cell(90, 10, format_rp(l_operasional), 0, 1, 'R')
+            pdf.ln(5)
+            
+            # Bagian II: Perubahan Modal
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(190, 10, "II. LAPORAN PERUBAHAN MODAL", 0, 1, 'L')
+            pdf.set_font("Arial", '', 10)
+            pdf.cell(100, 8, "Modal Awal Periode", 0, 0); pdf.cell(90, 8, format_rp(modal_awal_periode), 0, 1, 'R')
+            pdf.cell(100, 8, "Ditambah: Laba Bersih", 0, 0); pdf.cell(90, 8, format_rp(l_operasional), 0, 1, 'R')
+            pdf.cell(100, 8, "Dikurangi: Pengambilan Pribadi (Prive)", 0, 0); pdf.cell(90, 8, f"- {format_rp(p_sum)}", 0, 1, 'R')
+            pdf.line(110, pdf.get_y(), 200, pdf.get_y())
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(100, 10, "MODAL AKHIR PERIODE", 0, 0); pdf.cell(90, 10, format_rp(modal_akhir_periode), 0, 1, 'R')
+            
+            # Footer kecil
+            pdf.ln(20)
+            pdf.set_font("Arial", 'I', 8)
+            pdf.cell(190, 10, f"Dicetak otomatis melalui FIN-Saku pada {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'C')
+            
+            # Output ke Streamlit Download
+            st.download_button(
+                label="Klik untuk Simpan PDF",
+                data=pdf.output(dest='S').encode('latin-1'),
+                file_name=f"Laporan_{sel_lap}_{nama_u}.pdf",
+                mime="application/pdf"
+            )
 
     with tab_kur:
         st.subheader("🏦 Konsultasi Strategis KUR")
@@ -138,17 +221,18 @@ if not df.empty:
         else:
             st.success("### ✅ STATUS: SANGAT LAYAK (READY TO BANK)")
             
-            # Perhitungan Logika
-            max_cicilan_aman = laba_bln * 0.35
-            plafon = 50000000 if modal_akhir_bln > 15000000 else 10000000
+            # Gunakan variabel dari tab laporan jika tersedia atau hitung rata-rata
+            laba_rata = (df['laba'].sum() - df['prive'].sum()) / jumlah_bulan_data
+            max_cicilan_aman = laba_rata * 0.35
+            plafon = 50000000 if modal_skrg_all > 15000000 else 10000000
             produk = "KUR Mikro BRI" if plafon > 10000000 else "KUR Super Mikro BRI"
 
             st.markdown(f'<div class="white-card"><h4>Rekomendasi Plafon:</h4><h2>{produk}: {format_rp(plafon)}</h2><p>Batas Cicilan Aman Sistem: <b>{format_rp(max_cicilan_aman)}/bln</b></p></div>', unsafe_allow_html=True)
             
             tenor = st.select_slider("Pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36])
             total_cicilan = (plafon / tenor) + ((plafon * 0.06) / 12)
-            sisa_laba = laba_bln - total_cicilan
-            persen_sisa = (sisa_laba / laba_bln) * 100
+            sisa_laba = laba_rata - total_cicilan
+            persen_sisa = (sisa_laba / laba_rata) * 100 if laba_rata > 0 else 0
 
             col_a, col_b = st.columns(2)
             with col_a:
@@ -157,31 +241,20 @@ if not df.empty:
                 warna_sisa = "green" if persen_sisa >= 70 else "orange"
                 st.markdown(f'<div class="white-card"><h4>Sisa Laba Bersih:</h4><h3 style="color:{warna_sisa};">{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</h3></div>', unsafe_allow_html=True)
 
-            # --- FITUR TAMBAHAN: NARASI ANALISIS (YANG ANDA MINTA) ---
             st.write("---")
             st.subheader("📝 Kesimpulan Analisis Hasil (Credit Scoring)")
-            
             narasi_status = "Sangat Layak" if persen_sisa >= 70 else "Perlu Penyesuaian"
             
             st.markdown(f"""
             <div class="white-card" style="border-left: 8px solid #001f3f;">
-                Berdasarkan data bulan {sel_b}, ini adalah hasil analisis kelayakan pinjaman mandiri untuk usaha Anda. 
-                Kabar baiknya, status Anda dianggap <b>"{narasi_status}"</b>, namun ada rincian penting:
+                Berdasarkan data rata-rata, status Anda dianggap <b>"{narasi_status}"</b>:
                 <br><br>
-                <b>1. Rekomendasi Pinjaman:</b><br>
-                Sistem menyarankan produk <b>{produk}</b> dengan plafon <b>{format_rp(plafon)}</b>. 
-                Produk ini ditujukan untuk UMKM dengan bunga subsidi pemerintah.
+                <b>1. Rekomendasi Pinjaman:</b> Plafon <b>{format_rp(plafon)}</b> via {produk}.<br>
+                <b>2. Analisis Batas Cicilan Aman:</b> Ideal maksimal <b>{format_rp(max_cicilan_aman)}/bulan</b>.<br>
+                <b>3. Sisa Laba Bersih:</b> Setelah bayar cicilan, sisa laba Anda <b>{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</b>.
                 <br><br>
-                <b>2. Analisis Batas Cicilan Aman:</b><br>
-                Sistem menghitung cicilan ideal Anda adalah <b>{format_rp(max_cicilan_aman)}/bulan</b>. 
-                Pada pilihan tenor {tenor} bulan, cicilan Anda menjadi <b>{format_rp(total_cicilan)}/bulan</b>.
-                <br><br>
-                <b>3. Sisa Laba Bersih & Arus Kas:</b><br>
-                Setelah bayar cicilan, sisa laba Anda adalah <b>{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</b>. 
-                <br><i>*Catatan: Bank menyukai sisa laba > 70% agar arus kas tetap sehat.</i>
-                <br><br>
-                <b>Kesimpulan & Saran:</b><br>
-                {"✅ Pilihan tenor sudah tepat dan aman bagi keuangan Anda." if persen_sisa >= 70 else f"⚠️ Tenor {tenor} bulan terlihat agak <b>'memaksa'</b> keuangan Anda karena sisa laba di bawah 70%. Agar lebih mudah disetujui bank, cobalah geser slider ke 24 atau 36 bulan untuk mendekati batas aman."}
+                <b>Kesimpulan:</b><br>
+                {"✅ Pilihan tenor sudah tepat dan aman bagi keuangan Anda." if persen_sisa >= 70 else "⚠️ Tenor ini agak memberatkan arus kas. Coba pilih jangka waktu lebih lama."}
             </div>
             """, unsafe_allow_html=True)
 
