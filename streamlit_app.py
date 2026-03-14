@@ -48,13 +48,11 @@ st.markdown("""
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
 jumlah_bulan_data = df['bulan'].nunique() if not df.empty else 0
 
-# --- SIDEBAR: PROFIL & SEKTOR USAHA ---
+# --- SIDEBAR: PROFIL & ATURAN HARGA ---
 with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
     nama_u = st.text_input("Nama Usaha", "UMKM Maju Bersama")
-    
-    # NEW: SEKTOR USAHA
     sektor = st.selectbox("Sektor Usaha:", ["Kuliner (Makanan/Minuman)", "Retail (Toko Kelontong/Baju)", "Jasa (Laundry/Service)", "Produksi/Manufaktur"])
     
     modal_awal_input = st.text_input("Uang Kas Awal (Modal)", "7000000")
@@ -68,32 +66,16 @@ with st.sidebar:
     st.markdown(f"<h3 style='color:#FFD700;'>Kas Saat Ini:<br>{format_rp(modal_skrg_all)}</h3>", unsafe_allow_html=True)
     
     st.write("---")
-    st.subheader("⚙️ Aturan Harga & Margin")
     hpp_val = clean_to_int(st.text_input("HPP Produk (Modal)", "5000"))
     hrg_val = clean_to_int(st.text_input("Harga Jual", "15000"))
     
-    # LOGIKA INTERAKTIF MARGIN PER SEKTOR
     if hrg_val > 0:
         margin_pct = ((hrg_val - hpp_val) / hrg_val) * 100
         st.write(f"Margin Anda: **{margin_pct:.1f}%**")
-        
-        # Standar Margin: Kuliner (40-60%), Retail (15-25%), Jasa (50%+), Produksi (30%+)
-        if sektor == "Kuliner (Makanan/Minuman)":
-            if margin_pct < 40: st.error("❌ Terlalu Rendah. Kuliner minimal 40-50% untuk tutup biaya gas/listrik.")
-            else: st.success("✅ Sangat Baik. Margin kuliner Anda sehat.")
-        elif sektor == "Retail (Toko Kelontong/Baju)":
-            if margin_pct < 15: st.error("❌ Terlalu Rendah. Retail butuh perputaran cepat dengan margin min 15%.")
-            else: st.success("✅ Sesuai Standar Retail.")
-        elif sektor == "Jasa (Laundry/Service)":
-            if margin_pct < 50: st.warning("⚠️ Jasa biasanya punya margin > 60% karena modal utama adalah tenaga.")
-            else: st.success("✅ Margin Jasa Luar Biasa.")
-        else: # Produksi
-            if margin_pct < 30: st.error("❌ Terlalu Rendah untuk Sektor Produksi.")
-            else: st.success("✅ Margin Produksi Sehat.")
-
+        if margin_pct < 30: st.warning("⚠️ Margin rendah untuk sektor ini.")
+    
     st.write("---")
     prive_pct = st.slider("Jatah Pribadi/Prive (%)", 0, 50, 30)
-    if prive_pct > 30: st.warning("⚠️ Prive tinggi menghambat modal.")
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
@@ -109,9 +91,6 @@ with col_in:
     laba_in = omzet_in - biaya_hpp
     prive_in = laba_in * (prive_pct / 100) if laba_in > 0 else 0
 
-    if omzet_in > 0:
-        st.info(f"Analisis: Laba {format_rp(laba_in)} | Prive {format_rp(prive_in)}")
-
     if st.button("🔔 SIMPAN TRANSAKSI"):
         c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
                   (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", omzet_in, laba_in, prive_in, rekap_mode))
@@ -119,9 +98,9 @@ with col_in:
         st.rerun()
 
 with col_info:
-    st.markdown(f'<div class="white-card"><h3>💡 Rekomendasi Sektor</h3><p>Untuk sektor <b>{sektor}</b>, bank sangat memperhatikan efisiensi biaya bahan baku. Jaga margin Anda agar tetap di zona hijau.</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="white-card"><h3>💡 Tips Konsultan</h3><p>Untuk sektor <b>{sektor}</b>, jaga agar pengeluaran pribadi (prive) tidak menguras modal stok barang Anda.</p></div>', unsafe_allow_html=True)
 
-# --- BAGIAN LAPORAN & KUR ---
+# --- BAGIAN TABS (LAPORAN, KUR, REVISI) ---
 if not df.empty:
     st.write("---")
     tab_rep, tab_kur, tab_rev = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI", "🛠️ REVISI"])
@@ -138,126 +117,56 @@ if not df.empty:
         prive_bln = db_bulan['prive'].sum()
         
         idx_bulan = list_bulan.index(sel_b)
-        bulan_sebelumnya = list_bulan[:idx_bulan]
-        total_laba_lalu = df[df['bulan'].isin(bulan_sebelumnya)]['laba'].sum()
-        total_prive_lalu = df[df['bulan'].isin(bulan_sebelumnya)]['prive'].sum()
+        total_laba_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['laba'].sum()
+        total_prive_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['prive'].sum()
         
         modal_awal_bln = modal_awal + total_laba_lalu - total_prive_lalu
         modal_akhir_bln = modal_awal_bln + laba_bln - prive_bln
 
-        c_lr, c_pm = st.columns(2)
-        with c_lr:
-            st.markdown(f"""<div class="white-card"><h3 style="text-align:center;">LABA RUGI - {sel_b}</h3><hr>
-                <table style="width:100%;">
-                    <tr><td>Pendapatan</td><td style="text-align:right;">{format_rp(omzet_bln)}</td></tr>
-                    <tr style="color:red;"><td>Beban HPP</td><td style="text-align:right;">({format_rp(omzet_bln-laba_bln)})</td></tr>
-                    <tr style="border-top:2px solid black; font-weight:bold; color:{'green' if laba_bln >= 0 else 'red'};">
-                        <td>LABA BERSIH</td><td style="text-align:right;">{format_rp(laba_bln)}</td>
-                    </tr>
-                </table></div>""", unsafe_allow_html=True)
-        with c_pm:
-            st.markdown(f"""<div class="white-card"><h3 style="text-align:center;">MODAL - {sel_b}</h3><hr>
-                <table style="width:100%;">
-                    <tr><td>Modal Awal (Saldo Lalu)</td><td style="text-align:right;">{format_rp(modal_awal_bln)}</td></tr>
-                    <tr><td>Laba Bulan Ini</td><td style="text-align:right; color:green;">{format_rp(laba_bln)}</td></tr>
-                    <tr style="color:red;"><td>Prive</td><td style="text-align:right;">({format_rp(prive_bln)})</td></tr>
-                    <tr style="border-top:2px solid black; font-weight:bold; background:#FFD700;">
-                        <td>MODAL AKHIR (KAS)</td><td style="text-align:right;">{format_rp(modal_akhir_bln)}</td>
-                    </tr>
-                </table></div>""", unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(f"""<div class="white-card"><h3>LABA RUGI - {sel_b}</h3><hr>
+                Pendapatan: {format_rp(omzet_bln)}<br>Laba Bersih: <b>{format_rp(laba_bln)}</b></div>""", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"""<div class="white-card"><h3>MODAL - {sel_b}</h3><hr>
+                Kas Awal: {format_rp(modal_awal_bln)}<br>Kas Akhir: <b>{format_rp(modal_akhir_bln)}</b></div>""", unsafe_allow_html=True)
 
-with tab_kur:
-        st.subheader("🏦 Konsultasi Strategis KUR (Analisis Mantri)")
-        
+    with tab_kur:
+        st.subheader("🏦 Konsultasi Strategis KUR")
         st.write(f"Histori Laporan: **{jumlah_bulan_data} Bulan**")
         
         if jumlah_bulan_data < 3:
-            st.error(f"### 🚩 STATUS: BELUM LAYAK (DATA KURANG)")
-            st.markdown(f"""<div class="white-card" style="border-left: 8px solid red;">
-                <h4>Kenapa Belum Bisa Pinjam?</h4>
-                <p>Bank BRI butuh melihat konsistensi. Ibarat kenalan, Bank belum 'kenal' dalam dengan bisnis Anda. 
-                Lengkapi catatan <b>{3-jumlah_bulan_data} bulan</b> lagi agar Bank percaya bahwa laba Anda bukan kebetulan.</p>
-                </div>""", unsafe_allow_html=True)
-        
-        elif laba_bln < 1500000:
-            st.warning("### ⚠️ STATUS: PERBAIKI PERFORMANCE")
-            st.markdown(f"""<div class="white-card" style="border-left: 8px solid orange;">
-                <h4>Analisis Konsultan:</h4>
-                <p>Laba Anda {format_rp(laba_bln)} masih terlalu mepet untuk membayar cicilan bank. 
-                Saran: Fokus naikkan penjualan dulu bulan depan agar saat pinjam, Anda tidak pusing bayar cicilannya.</p>
-                </div>""", unsafe_allow_html=True)
-        
+            st.error("### 🚩 STATUS: BELUM LAYAK (DATA KURANG)")
+            st.info(f"Lengkapi catatan {3-jumlah_bulan_data} bulan lagi untuk melihat analisis lengkap.")
         else:
             st.success("### ✅ STATUS: SANGAT LAYAK (READY TO BANK)")
-            
-            # Perhitungan Logika Bank
-            max_cicilan_aman = laba_bln * 0.35 # 35% dari laba
+            max_cicilan_aman = laba_bln * 0.35
             plafon = 50000000 if modal_akhir_bln > 15000000 else 10000000
             produk = "KUR Mikro BRI" if plafon > 10000000 else "KUR Super Mikro BRI"
 
-            st.markdown(f"""<div class="white-card">
-                <h4>Rekomendasi Pinjaman:</h4>
-                <h2 style="color:#001f3f;">{produk}: {format_rp(plafon)}</h2>
-                <p>Batas Cicilan Aman menurut sistem: <b style="color:green;">{format_rp(max_cicilan_aman)}/bln</b></p>
-            </div>""", unsafe_allow_html=True)
-
-            tenor = st.select_slider("Geser untuk pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36])
+            st.markdown(f'<div class="white-card"><h4>Rekomendasi: {produk}</h4><h2>{format_rp(plafon)}</h2><p>Batas Cicilan Aman: <b>{format_rp(max_cicilan_aman)}/bln</b></p></div>', unsafe_allow_html=True)
             
-            # Hitung Cicilan
-            total_cicilan = (plafon / tenor) + ((plafon * 0.06) / 12)
+            tenor = st.select_slider("Pilih Tenor (Bulan):", options=[12, 24, 36])
+            total_cicilan = (plafon/tenor) + ((plafon*0.06)/12)
             sisa_laba = laba_bln - total_cicilan
-            persen_sisa = (sisa_laba / laba_bln) * 100
+            persen_sisa = (sisa_laba/laba_bln)*100
 
-            # UI DASHBOARD ANGKA
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown(f"""<div class="white-card">
-                    <p style="margin:0;">Cicilan Per Bulan:</p>
-                    <h3 style="margin:0; color:#001f3f;">{format_rp(total_cicilan)}</h3>
-                    <p style="margin:0; font-size:12px;">Tenor {tenor} Bulan</p>
-                </div>""", unsafe_allow_html=True)
-            with c2:
-                warna_sisa = "green" if persen_sisa >= 70 else "orange"
-                st.markdown(f"""<div class="white-card">
-                    <p style="margin:0;">Sisa Laba Bersih:</p>
-                    <h3 style="margin:0; color:{warna_sisa};">{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</h3>
-                    <p style="margin:0; font-size:12px;">Setelah bayar cicilan</p>
-                </div>""", unsafe_allow_html=True)
-
-            # --- BAGIAN NARASI PENJELASAN (HUMAN FRIENDLY) ---
+            # Narasi Human-Friendly
             st.write("---")
-            st.subheader("📝 Penjelasan Hasil Analisis Anda")
-            
+            st.subheader("📝 Penjelasan Analisis")
             if persen_sisa < 70:
-                st.markdown(f"""
-                <div style="background-color: #fff3cd; padding: 20px; border-radius: 10px; color: #856404; border: 1px solid #ffeeba;">
-                    <b>Kesimpulan & Saran:</b><br>
-                    Meskipun status Anda "Sangat Layak", simulasi {tenor} bulan ini terlihat agak <b>"memaksa"</b> keuangan Anda. 
-                    Cicilan {format_rp(total_cicilan)} melebihi batas aman yang disarankan ({format_rp(max_cicilan_aman)}).<br><br>
-                    <b>Agar lebih mudah disetujui bank:</b><br>
-                    1. <b>Perpanjang Jangka Waktu:</b> Coba geser slider ke 24 atau 36 bulan. Ini akan menurunkan cicilan bulanan mendekati angka aman.<br>
-                    2. <b>Posisi Manis:</b> Bank sangat menyukai jika sisa laba Anda di atas 70%. Saat ini sisa Anda hanya {persen_sisa:.0f}%.
-                </div>
-                """, unsafe_allow_html=True)
+                st.warning(f"Simulasi {tenor} bulan ini agak memaksa. Cicilan {format_rp(total_cicilan)} melebihi batas aman ({format_rp(max_cicilan_aman)}).")
+                st.info("Saran: Perpanjang jangka waktu ke 24 atau 36 bulan agar sisa laba naik ke atas 70%.")
             else:
-                st.markdown(f"""
-                <div style="background-color: #d4edda; padding: 20px; border-radius: 10px; color: #155724; border: 1px solid #c3e6cb;">
-                    <b>Kesimpulan & Saran:</b><br>
-                    Pilihan tenor {tenor} bulan sudah <b>SANGAT TEPAT</b>. Cicilan Anda berada di bawah batas aman, dan sisa laba Anda ({persen_sisa:.0f}%) berada di "Posisi Manis" mata Bank BRI.<br><br>
-                    Silakan ajukan ke Mantri BRI dengan membawa laporan dari FIN-Saku ini sebagai bukti Anda UMKM yang melek finansial!
-                </div>
-                """, unsafe_allow_html=True)
+                st.success(f"Pilihan tenor {tenor} bulan sudah tepat! Sisa laba {persen_sisa:.0f}% berada di posisi manis mata bank.")
 
     with tab_rev:
-        st.subheader("🛠️ Revisi")
+        st.subheader("🛠️ Revisi Data")
         df_rev = df.sort_values(by='id', ascending=False)
-        if not df_rev.empty:
-            pilihan = [f"ID:{row['id']} | {row['tanggal']} | {format_rp(row['omzet'])}" for _, row in df_rev.iterrows()]
-            target = st.selectbox("Pilih data:", pilihan)
-            id_del = int(target.split("|")[0].replace("ID:", ""))
-            if st.button("🗑️ HAPUS PERMANEN"):
-                c.execute("DELETE FROM transaksi WHERE id = ?", (id_del,))
-                conn.commit()
-                st.rerun()
+        target = st.selectbox("Pilih data untuk dihapus:", [f"ID:{r['id']} | {r['tanggal']}" for _, r in df_rev.iterrows()])
+        if st.button("🗑️ HAPUS DATA"):
+            c.execute("DELETE FROM transaksi WHERE id=?", (int(target.split("|")[0].replace("ID:","")),))
+            conn.commit()
+            st.rerun()
 else:
-    st.info("👋 Halo! Silakan masukkan data transaksi pertama Anda di atas.")
+    st.info("Silakan masukkan transaksi pertama Anda.")
