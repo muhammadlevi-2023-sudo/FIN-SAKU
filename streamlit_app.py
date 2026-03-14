@@ -293,12 +293,44 @@ with tab2:
             else:
                 st.error("🚨 **KATA KONSULTAN:** TERLALU BERAT. Cicilan ini akan menghabiskan banyak keuntungan Anda. Coba kecilkan jumlah pinjaman.")
 
-            st.write("---")
-            st.write("📋 **SIAPKAN INI SEBELUM KE BANK:**")
-            e1, e2, e3 = st.columns(3)
-            with e1: st.info("**KTP & KK** (Identitas)")
-            with e2: st.info("**NIB/SKU** (Izin Usaha)")
-            with e3: st.info("**PDF FIN-Saku** (Bukti Keuangan)")
+            # BERKAS UNTUK DIBAWA (Edukasi Lengkap)
+                        st.write("---")
+                        st.markdown("### 📋 Persiapan Dokumen (Lolos Verifikasi Bank)")
+                        st.write("Jangan cuma bawa badan! Bank butuh bukti hitam di atas putih untuk percaya pada Anda.")
+            
+                        # Menggunakan Expander agar rapi tapi detail
+                        with st.expander("1. 🪪 Identitas Diri (KTP & KK)", expanded=False):
+                            col_i1, col_i2 = st.columns([1, 2])
+                            with col_i1:
+                                st.info("**Tujuan:** Memastikan Anda warga asli & punya domisili tetap.")
+                            with col_i2:
+                                st.write("""
+                                * **Kenapa Perlu?** Bank harus lapor ke sistem OJK (SLIK) menggunakan NIK Anda untuk cek riwayat kredit (pernah nunggak atau tidak).
+                                * **Cara Dapet:** Pastikan KTP sudah elektronik (E-KTP) dan data di KK sudah update di Dukcapil.
+                                """)
+            
+                        with st.expander("2. 📜 Legalitas Usaha (NIB / SKU)", expanded=False):
+                            col_l1, col_l2 = st.columns([1, 2])
+                            with col_l1:
+                                st.info("**Tujuan:** Membuktikan usaha Anda 'Legal' dan bukan usaha fiktif.")
+                            with col_l2:
+                                st.write("""
+                                * **Kenapa Perlu?** Syarat wajib KUR adalah usaha sudah berjalan minimal 6 bulan. Dokumen ini adalah "Akte Kelahiran" bisnis Anda.
+                                * **Cara Dapet:** 1. **NIB:** Daftar mandiri di situs **oss.go.id** (Gratis & cuma 10 menit).
+                                    2. **SKU:** Minta ke Kantor Kelurahan/Desa dengan membawa pengantar RT/RW.
+                                """)
+
+            with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)", expanded=True):
+                col_k1, col_k2 = st.columns([1, 2])
+                with col_k1:
+                    st.info("**Tujuan:** Menyakinkan Bank bahwa Anda mampu membayar cicilan.")
+                with col_k2:
+                    st.write("""
+                    * **Kenapa Perlu?** Bank tidak mau nebak-nebak. Dengan laporan rapi dari aplikasi ini, Bank melihat Anda sebagai 'Pengusaha Profesional' yang mengerti keuangan.
+                    * **Cara Dapet:** Klik tombol **'DOWNLOAD LAPORAN PDF'** di Tab Laporan Keuangan, lalu cetak (print) di kertas A4.
+                    """)
+
+            st.success("💡 **TIPS DARI KONSULTAN:** Bawa dokumen asli dan fotokopi sebanyak 2 rangkap saat ke Mantri BRI (Petugas KUR).")
                           
 with tab3:
         st.dataframe(df_all[['id', 'tgl_data', 'omzet', 'laba']])
