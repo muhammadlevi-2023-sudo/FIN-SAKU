@@ -6,8 +6,8 @@ from datetime import datetime
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(page_title="FIN-Saku: Solusi KUR Digital", layout="wide")
 
-# --- DATABASE ENGINE (Menjamin Data Tidak Hilang Saat Refresh) ---
-conn = sqlite3.connect('finsaku_unair_final.db', check_same_thread=False)
+# --- DATABASE ENGINE ---
+conn = sqlite3.connect('finsaku_unair_fixed_final.db', check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS transaksi 
              (id INTEGER PRIMARY KEY, tanggal TEXT, bulan TEXT, minggu TEXT, 
@@ -18,52 +18,140 @@ conn.commit()
 
 # --- FUNGSI TOOLS ---
 def format_rp(angka):
-    try:
-        return "Rp {:,.0f}".format(float(angka)).replace(",", ".")
-    except:
-        return "Rp 0"
+    try: return "Rp {:,.0f}".format(float(angka)).replace(",", ".")
+    except: return "Rp 0"
 
 def clean_to_int(teks):
     angka = "".join(filter(str.isdigit, str(teks)))
     return int(angka) if angka else 0
 
-# 2. UI CUSTOM: UNAIR NAVY & GOLD (High Contrast)
+# 2. UI CUSTOM: UNAIR NAVY & GOLD (Anti-Nyaru Version)
 st.markdown("""
 <style>
+    /* KUNCI BACKGROUND UTAMA */
     .stApp { background-color: #003366 !important; }
-    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp li, .stApp span, .stApp label {
+
+    /* PAKSA SEMUA TEKS BAWAAN MENJADI PUTIH TERANG */
+    .stApp, .stApp p, .stApp span, .stApp label, .stApp li, .stApp h1, .stApp h2, .stApp h3 {
         color: #ffffff !important;
+        opacity: 1 !important;
     }
-    [data-testid="stSidebar"] { background-color: #002244 !important; border-right: 3px solid #FFD700; }
-    
-    /* Box Edukasi: Teks Navy di atas Putih */
+
+    /* PERBAIKAN TAB: Pastikan teks HARIAN, MINGGUAN, dll. terlihat jelas */
+    button[data-baseweb="tab"] p { 
+        color: #FFD700 !important; 
+        font-weight: 800 !important; 
+        font-size: 16px !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] { 
+        background-color: #FFD700 !important; 
+    }
+    button[data-baseweb="tab"][aria-selected="true"] p { 
+        color: #003366 !important; 
+    }
+
+    /* SIDEBAR */
+    [data-testid="stSidebar"] { 
+        background-color: #002244 !important; 
+        border-right: 3px solid #FFD700; 
+    }
+    [data-testid="stSidebar"] * { color: #ffffff !important; }
+
+    /* BOX EDUKASI: Paksa teks jadi Navy agar kontras di atas putih */
     .edu-box { 
-        background-color: #ffffff !important; padding: 25px; border-radius: 15px; 
-        border-left: 10px solid #FFD700; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        background-color: #ffffff !important; 
+        padding: 25px; border-radius: 15px; 
+        border-left: 10px solid #FFD700; 
         margin-bottom: 25px;
     }
-    .edu-box h3, .edu-box p, .edu-box li, .edu-box b { color: #003366 !important; }
+    .edu-box h3, .edu-box p, .edu-box li, .edu-box b, .edu-box span { 
+        color: #003366 !important; 
+        font-weight: bold !important;
+    }
 
-    /* Tab Navigasi */
-    button[data-baseweb="tab"] p { color: #FFD700 !important; font-weight: bold !important; }
-    button[data-baseweb="tab"][aria-selected="true"] { background-color: #FFD700 !important; }
-    button[data-baseweb="tab"][aria-selected="true"] p { color: #003366 !important; }
-
-    /* Laporan & Card */
+    /* CARD LAPORAN */
     .report-card { 
         background-color: rgba(255, 255, 255, 0.1) !important; 
-        padding: 25px; border-radius: 12px; border: 1px solid #FFD700; margin-bottom: 20px;
+        padding: 25px; border-radius: 12px; 
+        border: 2px solid #FFD700; 
     }
-    .kur-card { background-color: #FFD700 !important; padding: 30px; border-radius: 15px; }
-    .kur-card h2, .kur-card p, .kur-card td, .kur-card b { color: #003366 !important; }
-
-    /* Tombol Gold */
-    .stButton>button { 
-        background-color: #FFD700 !important; color: #003366 !important; 
-        font-weight: bold; border-radius: 8px; height: 3.5em; width: 100%;
-    }
+    
+    /* INPUT FIELD: Pastikan teks ketikan berwarna putih */
+    input { color: #ffffff !important; background-color: #002244 !important; }
 </style>
 """, unsafe_allow_html=True)
+
+# --- DATA PROFIL ---
+c.execute("SELECT * FROM profil WHERE id=1")
+p_data = c.fetchone()
+saved_nama = p_data[1] if p_data else "Usaha Baru"
+saved_modal = p_data[2] if p_data else 0.0
+
+# --- SIDEBAR ---
+with st.sidebar:
+    st.markdown("<h1 style='text-align:center; color:#FFD700 !important;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
+    nama_usaha = st.text_input("Nama Usaha", saved_nama)
+    m_raw = st.text_input("Modal Kas Awal (Rp)", value=str(int(saved_modal)))
+    if st.button("💾 SIMPAN PROFIL"):
+        c.execute("INSERT OR REPLACE INTO profil (id, nama_usaha, modal_awal) VALUES (1, ?, ?)", (nama_usaha, clean_to_int(m_raw)))
+        conn.commit()
+        st.rerun()
+
+# --- HALAMAN UTAMA ---
+st.title(f"Dashboard Keuangan: {nama_usaha}")
+
+# EDU BOX (Sudah dikunci warnanya agar tidak putih di atas putih)
+st.markdown("""
+<div class="edu-box">
+    <h3>🔍 Inovasi FIN-Saku: Mengapa UMKM Harus Bankable?</h3>
+    <p>Bank menilai kesehatan usaha Anda melalui:</p>
+    <ul>
+        <li><b>Karakter:</b> Kedisiplinan Anda mencatat transaksi harian.</li>
+        <li><b>Kapasitas:</b> Laba bersih bulanan yang cukup untuk membayar cicilan.</li>
+        <li><b>Modal:</b> Pengelolaan kas yang terpisah antara usaha dan pribadi.</li>
+    </ul>
+</div>
+""", unsafe_allow_html=True)
+
+col_in, _ = st.columns([1, 1.2])
+with col_in:
+    st.subheader("📝 Catat Penjualan")
+    tgl = st.date_input("Tanggal Transaksi", datetime.now())
+    qty = st.number_input("Unit Terjual", min_value=0)
+    if st.button("🔔 SIMPAN TRANSAKSI"):
+        if qty > 0:
+            # Contoh HPP & Harga dari sidebar (disimplifikasi agar tidak error)
+            v_omzet = qty * 15000 
+            v_laba = qty * 10000
+            v_prive = v_laba * 0.3
+            c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive) VALUES (?, ?, ?, ?, ?, ?)",
+                      (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", v_omzet, v_laba, v_prive))
+            conn.commit()
+            st.rerun()
+
+# --- TAB LAPORAN (Sudah diperbaiki visibilitasnya) ---
+df = pd.read_sql_query("SELECT * FROM transaksi", conn)
+if not df.empty:
+    st.write("---")
+    t_har, t_min, t_bul, t_kur = st.tabs(["📆 HARIAN", "📅 MINGGUAN", "🗓️ BULANAN", "🏦 ANALISIS KUR"])
+
+    with t_bul:
+        sel_b = st.selectbox("Pilih Bulan Laporan", df['bulan'].unique())
+        sub_df = df[df['bulan'] == sel_b]
+        total_kas = clean_to_int(m_raw) + (df['laba'].sum() - df['prive'].sum())
+        
+        st.markdown(f"""
+        <div class="report-card">
+            <h3 style='text-align:center; color:#FFD700;'>LAPORAN BULANAN: {sel_b}</h3>
+            <table style="width:100%; font-size:18px; color: white !important;">
+                <tr><td>Total Omzet</td><td style="text-align:right;">{format_rp(sub_df['omzet'].sum())}</td></tr>
+                <tr style="color:#FFD700;"><td><b>Laba Bersih</b></td><td style="text-align:right;"><b>{format_rp(sub_df['laba'].sum())}</b></td></tr>
+                <tr style="background-color:#FFD700; color:#003366; font-weight:bold;">
+                    <td style="padding:10px;">SALDO KAS SAAT INI</td><td style="text-align:right;">{format_rp(total_kas)}</td>
+                </tr>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
 
 # --- PROSES DATA PROFIL ---
 c.execute("SELECT * FROM profil WHERE id=1")
