@@ -4,139 +4,172 @@ import sqlite3
 from datetime import datetime
 from fpdf import FPDF
 
-# --- DATABASE FIX ---
-conn = sqlite3.connect('finsaku_v10_fix.db', check_same_thread=False)
+# --- DATABASE SETUP ---
+conn = sqlite3.connect('finsaku_v11_pro.db', check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS transaksi
              (id INTEGER PRIMARY KEY, tanggal TEXT, bulan TEXT, 
-              omzet REAL, laba REAL, prive REAL)''')
+              omzet REAL, laba REAL, prive REAL, tipe_catat TEXT)''')
 conn.commit()
 
 def format_rp(angka):
     return f"Rp {int(angka):,}".replace(",", ".")
 
-# --- UI PREMIUM REFINEMENT ---
+# --- UI CSS CUSTOM ---
 st.markdown("""
 <style>
-    .report-container {
-        background: #ffffff; padding: 30px; border-radius: 20px;
-        color: #1e1e1e !important; border-top: 10px solid #FFD700;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    .stApp { background-color: #001f3f; }
+    
+    /* Segmented Control / Modern Selector */
+    .stSelectbox div[data-baseweb="select"] {
+        border-radius: 10px; border: 2px solid #FFD700;
     }
-    .metric-card {
-        background: #f1f3f5; padding: 15px; border-radius: 12px;
-        text-align: center; border: 1px solid #dee2e6;
+    
+    /* Container Laporan */
+    .report-card {
+        background: #ffffff; padding: 25px; border-radius: 15px;
+        color: #333 !important; border-left: 10px solid #FFD700;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        margin-top: 20px;
     }
-    .stat-val { font-size: 1.4rem; font-weight: bold; color: #001f3f; }
-    .stat-label { font-size: 0.8rem; color: #666; font-weight: bold; }
+    .report-card h3, .report-card b, .report-card p { color: #333 !important; }
+
+    /* Modern Card Radio Replacement */
+    div[data-testid="stHorizontalBlock"] > div:hover {
+        transform: translateY(-5px);
+        transition: 0.3s;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR & LOGIKA MARGIN ---
+# --- SIDEBAR ---
 with st.sidebar:
-    st.title("💰 FIN-Saku Pro")
+    st.markdown("<h1 style='color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     nama_u = st.text_input("Nama Usaha", "UMKM Maju Bersama")
-    m_awal = st.number_input("Modal Awal (Uang di Tangan)", value=7000000)
-    
+    m_awal = st.number_input("Kas Awal (Modal)", value=7000000)
     st.write("---")
     hpp = st.number_input("HPP Satuan", value=5000)
     hrg = st.number_input("Harga Jual", value=15000)
     margin_pct = ((hrg - hpp) / hrg) if hrg > 0 else 0
-    prive_pct = st.slider("Jatah Prive Pemilik (%)", 0, 100, 30)
+    prive_pct = st.slider("Alokasi Prive Pemilik (%)", 0, 100, 30)
 
-# --- INPUT DATA ---
-with st.expander("📝 CATAT TRANSAKSI", expanded=True):
-    col_a, col_b, col_c = st.columns(3)
-    tgl = col_a.date_input("Tanggal")
-    omzet_in = col_b.number_input("Omzet Hari Ini", min_value=0)
-    if col_c.button("SIMPAN KE SISTEM", use_container_width=True):
-        laba_in = omzet_in * margin_pct
-        prive_in = laba_in * (prive_pct / 100)
-        c.execute("INSERT INTO transaksi (tanggal, bulan, omzet, laba, prive) VALUES (?,?,?,?,?)",
-                  (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), omzet_in, laba_in, prive_in))
+# --- DASHBOARD ---
+st.title(f"Dashboard: {nama_u}")
+
+# --- PENYUSUNAN METODE CATAT MODERN ---
+st.subheader("📝 Pilih Metode Pencatatan")
+col1, col2, col3 = st.columns(3)
+
+# Simpan pilihan di session state
+if 'metode' not in st.session_state:
+    st.session_state.metode = "Harian"
+
+with col1:
+    if st.button("📅 HARIAN", use_container_width=True):
+        st.session_state.metode = "Harian"
+with col2:
+    if st.button("📅 MINGGUAN", use_container_width=True):
+        st.session_state.metode = "Mingguan"
+with col3:
+    if st.button("📅 BULANAN", use_container_width=True):
+        st.session_state.metode = "Bulanan"
+
+st.markdown(f"Metode Aktif: **{st.session_state.metode}**")
+
+# Input Form
+with st.container():
+    c_a, c_b = st.columns(2)
+    tgl = c_a.date_input("Tanggal Transaksi")
+    omzet_in = c_b.number_input(f"Total Omzet ({st.session_state.metode})", min_value=0)
+    
+    if st.button("🚀 SIMPAN TRANSAKSI KE SISTEM", use_container_width=True):
+        l_in = omzet_in * margin_pct
+        p_in = l_in * (prive_pct / 100)
+        c.execute("INSERT INTO transaksi (tanggal, bulan, omzet, laba, prive, tipe_catat) VALUES (?,?,?,?,?,?)",
+                  (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), omzet_in, l_in, p_in, st.session_state.metode))
         conn.commit()
+        st.toast("Data Berhasil Dicatat!", icon="✅")
         st.rerun()
 
-# --- PROSES DATA & LAPORAN ---
+# --- LOGIKA AKUNTANSI & KUR ---
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
 if not df.empty:
-    list_bulan = df['bulan'].unique().tolist()
-    sel_b = st.selectbox("Pilih Periode Laporan", list_bulan, index=len(list_bulan)-1)
-    
-    # Perhitungan Akuntansi yang Benar
-    df_curr = df[df['bulan'] == sel_b]
-    o_tot = df_curr['omzet'].sum()
-    l_tot = df_curr['laba'].sum()
-    p_tot = df_curr['prive'].sum()
-    laba_bersih_akhir = l_tot - p_tot # Laba setelah gaji pemilik
-    
-    # Hitung Kas Berjalan
-    idx = list_bulan.index(sel_b)
-    laba_akum = df[df['bulan'].isin(list_bulan[:idx])]['laba'].sum()
-    prive_akum = df[df['bulan'].isin(list_bulan[:idx])]['prive'].sum()
-    kas_awal_bulan = m_awal + laba_akum - prive_akum
-    kas_akhir_bulan = kas_awal_bulan + laba_bersih_akhir
-
-    # UI LAPORAN WEB (GLOW UP)
-    st.markdown(f"""
-    <div class="report-container">
-        <h2 style="text-align:center; color:#001f3f;">LAPORAN KEUANGAN: {sel_b.upper()}</h2>
-        <p style="text-align:center; color:#666;">{nama_u}</p>
-        <hr>
-        <div style="display: flex; gap: 15px; margin-bottom:20px;">
-            <div class="metric-card" style="flex:1;">
-                <div class="stat-label">TOTAL OMZET</div>
-                <div class="stat-val">{format_rp(o_tot)}</div>
-            </div>
-            <div class="metric-card" style="flex:1;">
-                <div class="stat-label">LABA OPERASIONAL</div>
-                <div class="stat-val" style="color:green;">{format_rp(l_tot)}</div>
-            </div>
-            <div class="metric-card" style="flex:1;">
-                <div class="stat-label">GAJI PEMILIK (PRIVE)</div>
-                <div class="stat-val" style="color:red;">-{format_rp(p_tot)}</div>
-            </div>
-        </div>
-        <div style="background:#001f3f; color:white; padding:20px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <small>SALDO KAS AKHIR</small><br>
-                <b style="font-size:1.8rem; color:#FFD700;">{format_rp(kas_akhir_bulan)}</b>
-            </div>
-            <div style="text-align:right;">
-                <small>KAS AWAL: {format_rp(kas_awal_bulan)}</small><br>
-                <small>PERTUMBUHAN: {((kas_akhir_bulan-kas_awal_bulan)/kas_awal_bulan*100):.1f}%</small>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # --- OTAK KUR YANG DIPERBAIKI ---
     st.write("---")
-    st.subheader("🏦 Analisis Kelayakan KUR (Bank Standard)")
-    
-    # Logika Bank: Cicilan aman maksimal 30% dari Laba setelah Prive
-    kemampuan_bayar = laba_bersih_akhir * 0.30
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        plafon_req = st.select_slider("Ajukan Plafon Pinjaman:", options=[10000000, 25000000, 50000000, 100000000])
-        tenor = st.slider("Tenor (Bulan)", 12, 36, 12)
-        cicilan_per_bulan = (plafon_req / tenor) + (plafon_req * 0.06 / 12) # Bunga KUR 6%
-    
-    with col2:
-        sisa_setelah_cicilan = laba_bersih_akhir - cicilan_per_bulan
-        
-        if cicilan_per_bulan > laba_bersih_akhir:
-            st.error("### ❌ TIDAK LAYAK")
-            st.write("Alasan: Cicilan lebih besar dari sisa laba usaha. Bisnis akan bangkrut.")
-        elif cicilan_per_bulan > kemampuan_bayar:
-            st.warning("### ⚠️ RISIKO TINGGI")
-            st.write(f"Cicilan ({format_rp(cicilan_per_bulan)}) melebihi batas aman bank ({format_rp(kemampuan_bayar)}).")
-        else:
-            st.success("### ✅ SANGAT LAYAK")
-            st.write("Arus kas sangat sehat untuk meng-cover cicilan ini.")
+    tab_lap, tab_kur = st.tabs(["📊 LAPORAN MODERN", "🏦 ANALISIS KUR BRI"])
 
-    st.info(f"**Sisa Laba Akhir setelah Cicilan:** {format_rp(sisa_setelah_cicilan)}")
+    with tab_lap:
+        list_b = df['bulan'].unique().tolist()
+        sel_b = st.selectbox("Periode Laporan:", list_b, index=len(list_b)-1)
+        
+        # Perhitungan Akuntansi
+        df_b = df[df['bulan'] == sel_b]
+        o_tot = df_b['omzet'].sum()
+        l_op = df_b['laba'].sum()
+        p_tot = df_b['prive'].sum()
+        laba_bersih = l_op - p_tot
+        
+        # Kas Flow
+        idx = list_b.index(sel_b)
+        l_lalu = df[df['bulan'].isin(list_b[:idx])]['laba'].sum()
+        p_lalu = df[df['bulan'].isin(list_b[:idx])]['prive'].sum()
+        kas_awal = m_awal + l_lalu - p_lalu
+        kas_akhir = kas_awal + laba_bersih
+
+        st.markdown(f"""
+        <div class="report-card">
+            <h2 style="text-align:center;">LAPORAN LABA RUGI & KAS</h2>
+            <p style="text-align:center;">Periode: {sel_b}</p>
+            <hr>
+            <table style="width:100%; font-size: 1.1rem;">
+                <tr><td>Total Omzet</td><td style="text-align:right;">{format_rp(o_tot)}</td></tr>
+                <tr><td>Laba Operasional</td><td style="text-align:right; color:green;">{format_rp(l_op)}</td></tr>
+                <tr><td>Prive (Gaji Pemilik)</td><td style="text-align:right; color:red;">-{format_rp(p_tot)}</td></tr>
+                <tr style="border-top: 2px solid #333; font-weight:bold;">
+                    <td>LABA BERSIH (Sisa)</td><td style="text-align:right;">{format_rp(laba_bersih)}</td>
+                </tr>
+            </table>
+            <br>
+            <div style="background:#00152b; color:white; padding:15px; border-radius:10px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <span>SALDO KAS AWAL</span><span>{format_rp(kas_awal)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:1.3rem; color:#FFD700; font-weight:bold; margin-top:10px;">
+                    <span>SALDO KAS AKHIR</span><span>{format_rp(kas_akhir)}</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with tab_kur:
+        st.subheader("🏦 Skor Kredit & Simulasi")
+        
+        # OTAK KUR FIX: Cicilan tidak boleh > 35% Laba Bersih
+        limit_aman = laba_bersih * 0.35
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            plafon = st.selectbox("Plafon KUR", [10000000, 25000000, 50000000])
+            tenor = st.slider("Tenor (Bulan)", 12, 36, 12)
+            cicilan = (plafon / tenor) + (plafon * 0.005) # Bunga 6% per tahun (0.5% per bulan)
+            
+        with c2:
+            st.write(f"Estimasi Cicilan: **{format_rp(cicilan)}/bln**")
+            st.write(f"Batas Aman Bank: **{format_rp(limit_aman)}/bln**")
+            
+            if cicilan > laba_bersih:
+                st.error("### ❌ STATUS: TIDAK LAYAK")
+                st.caption("Cicilan memakan seluruh laba bersih. Sangat berisiko.")
+            elif cicilan > limit_aman:
+                st.warning("### ⚠️ STATUS: RISIKO TINGGI")
+                st.caption("Cicilan melebihi 35% laba. Bank mungkin akan ragu.")
+            else:
+                st.success("### ✅ STATUS: SANGAT LAYAK")
+                st.caption("Arus kas sangat aman untuk plafon ini.")
+
+        sisa_akhir = laba_bersih - cicilan
+        persen_sisa = (sisa_akhir / laba_bersih * 100) if laba_bersih > 0 else 0
+        
+        st.metric("Sisa Laba Setelah Cicilan", format_rp(sisa_akhir), f"{persen_sisa:.1f}%")
 
 else:
-    st.warning("Belum ada data transaksi untuk dianalisis.")
+    st.info("Silakan masukkan transaksi pertama Anda.")
