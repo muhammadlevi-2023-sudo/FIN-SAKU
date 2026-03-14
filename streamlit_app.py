@@ -78,35 +78,59 @@ with st.sidebar:
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
-rekap_mode = st.selectbox("Metode Catat:", ["Harian", "Mingguan", "Bulanan"])
+
+# FITUR MODERN: PEMILIHAN MODE INPUT
+st.subheader("📝 Catat Penjualan")
+rekap_mode = st.radio("Pilih Periode Catat:", ["Harian", "Mingguan", "Bulanan"], horizontal=True)
+
 col_in, col_info = st.columns([1, 1.2])
 
 with col_in:
-    st.subheader("📝 Input Penjualan")
-    tgl = st.date_input("Tanggal", datetime.now())
+    # --- LOGIKA UI DINAMIS SESUAI MODE ---
+    if rekap_mode == "Harian":
+        tgl_input = st.date_input("Tanggal Transaksi", datetime.now())
+        val_tgl = tgl_input.strftime("%Y-%m-%d")
+        val_bulan = tgl_input.strftime("%B %Y")
+        val_minggu = f"Minggu {tgl_input.isocalendar()[1]}"
+    elif rekap_mode == "Mingguan":
+        minggu_ke = st.number_input("Minggu Ke- (1-52)", 1, 52, datetime.now().isocalendar()[1])
+        val_tgl = f"Rekap Minggu {minggu_ke}"
+        val_bulan = datetime.now().strftime("%B %Y")
+        val_minggu = f"Minggu {minggu_ke}"
+    else:
+        list_nama_bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        bulan_pilih = st.selectbox("Pilih Bulan", list_nama_bulan, index=datetime.now().month - 1)
+        val_tgl = f"Rekap {bulan_pilih}"
+        val_bulan = f"{bulan_pilih} {datetime.now().year}"
+        val_minggu = "-"
+
     omzet_in = st.number_input("Total Omzet Penjualan", value=0, step=10000)
     
+    # Hitung Laba & Prive sesuai input sidebar
     biaya_hpp = omzet_in * (hpp_val / hrg_val) if hrg_val > 0 else 0
     laba_in = omzet_in - biaya_hpp
     prive_in = laba_in * (prive_pct / 100) if laba_in > 0 else 0
 
     if st.button("🔔 SIMPAN TRANSAKSI"):
-        c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                  (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", omzet_in, laba_in, prive_in, rekap_mode))
-        conn.commit()
-        st.rerun()
+        if omzet_in > 0:
+            c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                      (val_tgl, val_bulan, val_minggu, omzet_in, laba_in, prive_in, rekap_mode))
+            conn.commit()
+            st.success(f"Data {rekap_mode} Berhasil Disimpan!")
+            st.rerun()
+        else:
+            st.warning("Omzet tidak boleh nol!")
 
 with col_info:
-    st.markdown(f'<div class="white-card"><h3>💡 Tips Konsultan</h3><p>Sektor <b>{sektor}</b> membutuhkan konsistensi laporan minimal 3 bulan untuk dilirik Bank.</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="white-card"><h3>💡 Tips Konsultan</h3><p>Anda sedang mencatat secara <b>{rekap_mode}</b>. Pastikan data yang dimasukkan adalah total akumulasi pada periode tersebut.</p></div>', unsafe_allow_html=True)
 
-# --- BAGIAN TABS ---
+# --- BAGIAN TABS (TETAP SAMA SEPERTI LOGIKA ANDA) ---
 if not df.empty:
     st.write("---")
     tab_rep, tab_kur, tab_rev = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI", "🛠️ REVISI"])
     
     with tab_rep:
-        df['tgl_dt'] = pd.to_datetime(df['tanggal'])
-        df = df.sort_values('tgl_dt')
+        df['tgl_dt'] = pd.to_datetime(df['tanggal'], errors='coerce')
         list_bulan = df['bulan'].unique().tolist()
         sel_b = st.selectbox("Pilih Bulan Laporan:", list_bulan, index=len(list_bulan)-1)
         
@@ -137,8 +161,6 @@ if not df.empty:
             st.info(f"Lengkapi catatan {3-jumlah_bulan_data} bulan lagi untuk analisis mendalam.")
         else:
             st.success("### ✅ STATUS: SANGAT LAYAK (READY TO BANK)")
-            
-            # Perhitungan Logika
             max_cicilan_aman = laba_bln * 0.35
             plafon = 50000000 if modal_akhir_bln > 15000000 else 10000000
             produk = "KUR Mikro BRI" if plafon > 10000000 else "KUR Super Mikro BRI"
@@ -157,12 +179,10 @@ if not df.empty:
                 warna_sisa = "green" if persen_sisa >= 70 else "orange"
                 st.markdown(f'<div class="white-card"><h4>Sisa Laba Bersih:</h4><h3 style="color:{warna_sisa};">{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</h3></div>', unsafe_allow_html=True)
 
-            # --- FITUR TAMBAHAN: NARASI ANALISIS (YANG ANDA MINTA) ---
+            # --- ANALISIS NARASI ---
             st.write("---")
             st.subheader("📝 Kesimpulan Analisis Hasil (Credit Scoring)")
-            
             narasi_status = "Sangat Layak" if persen_sisa >= 70 else "Perlu Penyesuaian"
-            
             st.markdown(f"""
             <div class="white-card" style="border-left: 8px solid #001f3f;">
                 Berdasarkan data bulan {sel_b}, ini adalah hasil analisis kelayakan pinjaman mandiri untuk usaha Anda. 
@@ -170,7 +190,6 @@ if not df.empty:
                 <br><br>
                 <b>1. Rekomendasi Pinjaman:</b><br>
                 Sistem menyarankan produk <b>{produk}</b> dengan plafon <b>{format_rp(plafon)}</b>. 
-                Produk ini ditujukan untuk UMKM dengan bunga subsidi pemerintah.
                 <br><br>
                 <b>2. Analisis Batas Cicilan Aman:</b><br>
                 Sistem menghitung cicilan ideal Anda adalah <b>{format_rp(max_cicilan_aman)}/bulan</b>. 
