@@ -194,45 +194,75 @@ if not df_all.empty:
             pdf.cell(100, 10, "MODAL AKHIR", 1); pdf.cell(90, 10, format_rp(modal_akhir_periode), 1, 1, 'R')
             st.download_button("Klik untuk Simpan", data=pdf.output(dest='S').encode('latin-1'), file_name=f"Laporan_{sel_lap}.pdf")
 
-    with tab2:
-        st.subheader("🏦 Analisis Kelayakan KUR BRI")
-        jml_bln = df_all['bulan'].nunique()
-        avg_laba = (df_all['laba'].sum() - df_all['prive'].sum()) / jml_bln
+with tab2:
+        st.subheader("🏦 Analisis Kelayakan & Simulasi KUR BRI")
         
-        # Logika Plafon
-        if avg_laba > 2000000:
+        # --- DATA DASAR UNTUK ANALISIS ---
+        jml_bln = df_all['bulan'].nunique()
+        # Mengambil laba bersih dari bulan terbaru yang dipilih di laporan
+        laba_bersih_terakhir = l_bersih if 'l_bersih' in locals() else 0
+        laba_bersih_rata2 = (df_all['laba'].sum() - df_all['prive'].sum()) / jml_bln if jml_bln > 0 else 0
+        
+        # Penentuan Plafon & Produk berdasarkan Kapasitas (30% dari laba rata-rata)
+        # Ini adalah angka ideal yang disukai bank
+        batas_aman_cicilan = laba_bersih_rata2 * 0.3
+        
+        if laba_bersih_rata2 > 5000000:
             p_nama, p_val = "KUR Mikro BRI", 50000000
-        elif avg_laba > 500000:
+        elif laba_bersih_rata2 > 1000000:
             p_nama, p_val = "KUR Super Mikro BRI", 10000000
         else:
             p_nama, p_val = "KUR Super Mikro BRI", 5000000
-            
-        bunga = (p_val * 0.06 / 12)
-        cicilan = (p_val / 12) + bunga
-        
-        # Status
-        if jml_bln >= 6:
-            st.markdown("<div class='status-box layak'>STATUS: SANGAT LAYAK (IDEAL 6 BULAN)</div>", unsafe_allow_html=True)
-        elif jml_bln >= 3:
-            st.markdown("<div class='status-box pantau'>STATUS: LAYAK (MINIMAL 3 BULAN)</div>", unsafe_allow_html=True)
-        else:
-            st.markdown("<div class='status-box tidak'>STATUS: BELUM LAYAK (BUTUH MINIMAL 3 BULAN)</div>", unsafe_allow_html=True)
 
+        # --- SLIDER JANGKA WAKTU (INTERAKTIF) ---
+        tenor = st.select_slider("Geser untuk Pilih Jangka Waktu Pinjaman (Bulan):", options=[12, 18, 24, 36], value=12)
+        
+        # Hitung Cicilan (Bunga KUR subsidi 6% per tahun)
+        bunga_total = (p_val * 0.06 * (tenor/12))
+        cicilan_bln = (p_val + bunga_total) / tenor
+        sisa_laba = laba_bersih_terakhir - cicilan_bln
+        rasio_sisa = (sisa_laba / laba_bersih_terakhir * 100) if laba_bersih_terakhir > 0 else 0
+
+        # --- TAMPILAN STATUS ---
+        if jml_bln >= 3 and rasio_sisa > 50:
+            status_k = "SANGAT LAYAK (Ready to Bank)"
+            st.markdown(f'<div class="status-box layak">STATUS: {status_k}</div>', unsafe_allow_html=True)
+        else:
+            status_k = "PERLU PENYESUAIAN"
+            st.markdown(f'<div class="status-box pantau">STATUS: {status_k}</div>', unsafe_allow_html=True)
+
+        # --- RINGKASAN ANALISIS (NARASI MUDAH) ---
         st.markdown(f"""
         <div class="report-card">
-            <h4>Produk Disarankan: <span style="color:blue;">{p_nama} Rp {p_val/1000000:.0f}jt</span></h4>
+            <p>Berdasarkan hasil analisis <i>credit scoring</i> mandiri untuk usaha Anda, berikut adalah rinciannya:</p>
             <hr>
-            <p>• <b>Estimasi Cicilan:</b> {format_rp(cicilan)} / bulan</p>
-            <p>• <b>Bunga Efektif:</b> {format_rp(bunga)} / bulan (6% p.a)</p>
-            <p>• <b>Syarat Pendapatan:</b> Konsisten di {format_rp(df_all['omzet'].mean())} / bulan.</p>
-            <hr>
-            <b>KESIMPULAN:</b><br>
-            Berdasarkan trend {jml_bln} bulan, laba bersih Anda {format_rp(avg_laba)} cukup kuat untuk mengcover cicilan. Cashflow Anda sehat bagi bank.
+            <p><b>1. Rekomendasi Pinjaman:</b><br>
+            Sistem menyarankan Anda mengambil produk <b>{p_nama}</b> dengan plafon (pinjaman pokok) sebesar <b>{format_rp(p_val)}</b>.</p>
+            
+            <p><b>2. Batas Cicilan Aman vs Realita:</b><br>
+            • Batas Cicilan Aman: {format_rp(batas_aman_cicilan)}/bln<br>
+            • Cicilan Hasil Simulasi ({tenor} bln): <b style="color:{'red' if cicilan_bln > batas_aman_cicilan else 'green'}">{format_rp(cicilan_bln)}/bln</b></p>
+            
+            <p><b>3. Sisa Laba Bersih:</b><br>
+            Setelah membayar cicilan, sisa laba Anda adalah <b>{format_rp(sisa_laba)} ({rasio_sisa:.0f}%)</b>.</p>
+            <p style="font-size:12px; color:#666;"><i>Note: Bank menyukai sisa laba > 70% setelah cicilan.</i></p>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.write("📋 **BERKAS YANG PERLU DIBAWA:**")
-        st.info("1. KTP & KK\n2. NIB/SKU\n3. Laporan FIN-Saku\n4. Rekening Koran 3 Bulan")
+
+        # --- KESIMPULAN & SARAN STRATEGIS ---
+        with st.expander("📖 LIHAT KESIMPULAN & SARAN ANALIS", expanded=True):
+            st.write(f"Meskipun statusnya **'{status_k}'**, simulasi {tenor} bulan ini terlihat {'agak memaksa' if rasio_sisa < 70 else 'sangat sehat'} bagi arus kas usaha Anda.")
+            st.write("**Saran agar lebih mudah disetujui Bank:**")
+            
+            if rasio_sisa < 70:
+                st.write(f"1. **Perpanjang Jangka Waktu:** Coba geser slider ke 24 atau 36 bulan. Ini akan menurunkan cicilan hingga mendekati angka aman {format_rp(batas_aman_cicilan)}.")
+                st.write(f"2. **Posisi Manis:** Dengan cicilan lebih kecil, sisa laba Anda akan naik di atas 70%, yang merupakan posisi paling aman di mata Mantri BRI.")
+            else:
+                st.success("Kondisi keuangan Anda sudah di 'Posisi Manis'. Cicilan ini tidak akan mengganggu operasional harian Anda!")
+
+        st.write("---")
+        st.write("📋 **BERKAS YANG WAJIB DIBAWA KE BRI:**")
+        st.info("1. KTP & KK (Asli & Fotokopi)\n2. NIB atau Surat Keterangan Usaha (SKU)\n3. Print Laporan Keuangan dari FIN-Saku\n4. Rekening Koran/Buku Tabungan 3 bulan terakhir")
 
     with tab3:
         st.dataframe(df_all[['id', 'tgl_data', 'omzet', 'laba']])
