@@ -73,4 +73,4 @@ if st.button("PROSES & PISAHKAN DANA"):
 
 # --- FOOTER ---
 st.write("---")
-st.caption("FIN-Saku v2.0
+st.caption("FIN-Saku v2.0")
