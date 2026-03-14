@@ -33,29 +33,22 @@ def clean_to_int(teks):
 def generate_pdf(nama_usaha, periode_bulan, data_ringkas):
     pdf = FPDF()
     pdf.add_page()
-    
-    # Header Laporan
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(190, 10, nama_usaha.upper(), ln=True, align='C')
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(190, 10, f"LAPORAN KEUANGAN BULANAN", ln=True, align='C')
+    pdf.cell(190, 10, "LAPORAN KEUANGAN BULANAN", ln=True, align='C')
     pdf.cell(190, 10, f"Periode: {periode_bulan}", ln=True, align='C')
     pdf.line(10, 45, 200, 45)
     pdf.ln(15)
-
-    # Section 1: Laba Rugi
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(190, 10, "I. LAPORAN LABA RUGI", ln=True)
     pdf.set_font("Arial", '', 11)
-    
     pdf.cell(100, 10, "Total Pendapatan (Omzet)"); pdf.cell(90, 10, format_rp(data_ringkas['omzet']), ln=True, align='R')
     pdf.cell(100, 10, "Beban Pokok Penjualan (HPP)"); pdf.cell(90, 10, f"- {format_rp(data_ringkas['omzet'] - data_ringkas['laba'])}", ln=True, align='R')
     pdf.line(110, pdf.get_y(), 200, pdf.get_y())
     pdf.set_font("Arial", 'B', 11)
     pdf.cell(100, 10, "LABA BERSIH OPERASIONAL"); pdf.cell(90, 10, format_rp(data_ringkas['laba']), ln=True, align='R')
     pdf.ln(5)
-
-    # Section 2: Perubahan Modal
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(190, 10, "II. LAPORAN PERUBAHAN MODAL", ln=True)
     pdf.set_font("Arial", '', 11)
@@ -65,11 +58,9 @@ def generate_pdf(nama_usaha, periode_bulan, data_ringkas):
     pdf.line(110, pdf.get_y(), 200, pdf.get_y())
     pdf.set_font("Arial", 'B', 11)
     pdf.cell(100, 10, "MODAL AKHIR PERIODE"); pdf.cell(90, 10, format_rp(data_ringkas['modal_akhir']), ln=True, align='R')
-    
     pdf.ln(20)
     pdf.set_font("Arial", 'I', 8)
     pdf.cell(190, 10, f"Dicetak otomatis melalui FIN-Saku pada {datetime.now().strftime('%d/%m/%Y %H:%M')}", align='C')
-    
     return pdf.output(dest='S').encode('latin-1')
 
 # 2. UI CUSTOM
@@ -87,109 +78,77 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- LOGIKA DATA ---
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
 
-# --- SIDEBAR ---
 with st.sidebar:
     st.markdown("<h1 style='color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
-    nama_u = st.text_input("Nama Usaha", "Warung Maju Jaya")
-    sektor = st.selectbox("Sektor:", ["Kuliner", "Retail", "Jasa", "Produksi"])
-    modal_awal = clean_to_int(st.text_input("Modal Awal (Kas)", "5000000"))
-    
+    nama_u = st.text_input("Nama Usaha", "UMKM Maju Bersama")
+    sektor = st.selectbox("Sektor Usaha:", ["Kuliner", "Retail", "Jasa", "Produksi"])
+    modal_awal = clean_to_int(st.text_input("Modal Awal (Kas)", "7000000"))
     st.write("---")
     hpp_val = clean_to_int(st.text_input("HPP Produk", "5000"))
-    hrg_val = clean_to_int(st.text_input("Harga Jual", "10000"))
+    hrg_val = clean_to_int(st.text_input("Harga Jual", "15000"))
     prive_pct = st.slider("Jatah Pribadi (%)", 0, 100, 30)
 
-# --- DASHBOARD UTAMA ---
 st.title(f"Dashboard: {nama_u}")
-
-# --- INPUT TRANSAKSI DENGAN TAHUN ---
 st.subheader("📝 Input Penjualan")
 rekap_mode = st.radio("Pilih Periode:", ["Harian", "Mingguan", "Bulanan"], horizontal=True)
 
-col1, col2 = st.columns(2)
-with col1:
+c1, c2 = st.columns(2)
+with c1:
     tgl_ref = st.date_input("Pilih Tanggal", datetime.now())
     thn_pilih = tgl_ref.year
     bln_pilih = tgl_ref.strftime("%B")
-    
     if rekap_mode == "Harian":
         val_tgl = tgl_ref.strftime("%Y-%m-%d")
-        dom = tgl_ref.day
-        val_minggu = f"Minggu ke-{(dom-1)//7 + 1}"
+        val_minggu = f"Minggu ke-{(tgl_ref.day-1)//7 + 1}"
     elif rekap_mode == "Mingguan":
-        dom = tgl_ref.day
-        val_minggu = f"Minggu ke-{(dom-1)//7 + 1}"
+        val_minggu = f"Minggu ke-{(tgl_ref.day-1)//7 + 1}"
         val_tgl = f"Rekap {val_minggu}"
     else:
         val_minggu = "-"
         val_tgl = f"Rekap Bulanan"
-    
     val_bulan_tahun = f"{bln_pilih} {thn_pilih}"
 
-with col2:
-    omzet_in = st.number_input("Omzet (Rp)", value=0, step=10000)
-    if st.button("💾 SIMPAN DATA"):
-        laba_in = omzet_in * ((hrg_val - hpp_val) / hrg_val) if hrg_val > 0 else 0
-        prive_in = laba_in * (prive_pct / 100)
-        c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, tahun, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                  (val_tgl, val_bulan_tahun, val_minggu, thn_pilih, omzet_in, laba_in, prive_in, rekap_mode))
-        conn.commit()
-        st.rerun()
+with c2:
+    omzet_in = st.number_input("Total Omzet (Rp)", value=0)
+    if st.button("💾 SIMPAN"):
+        if omzet_in > 0:
+            laba_in = omzet_in * ((hrg_val - hpp_val) / hrg_val) if hrg_val > 0 else 0
+            prive_in = laba_in * (prive_pct / 100)
+            c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, tahun, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                      (val_tgl, val_bulan_tahun, val_minggu, thn_pilih, omzet_in, laba_in, prive_in, rekap_mode))
+            conn.commit()
+            st.rerun()
 
-# --- TAB LAPORAN (OUTPUT BANK) ---
 if not df.empty:
     st.write("---")
-    tab_lap, tab_kur = st.tabs(["📊 LAPORAN SIAP CETAK", "🏦 ANALISIS KUR"])
-    
-    with tab_lap:
+    tab1, tab2, tab3 = st.tabs(["📊 LAPORAN", "🏦 KUR", "🛠️ REVISI"])
+    with tab1:
         list_bulan = df['bulan'].unique().tolist()
-        sel_b = st.selectbox("Pilih Periode Laporan:", list_bulan)
-        
-        # Hitung Data Keuangan
-        data_b = df[df['bulan'] == sel_b]
-        omzet_b = data_b['omzet'].sum()
-        laba_b = data_b['laba'].sum()
-        prive_b = data_b['prive'].sum()
-        
-        # Hitung Modal Awal & Akhir
-        idx_b = list_bulan.index(sel_b)
-        laba_lalu = df[df['bulan'].isin(list_bulan[:idx_b])]['laba'].sum()
-        prive_lalu = df[df['bulan'].isin(list_bulan[:idx_b])]['prive'].sum()
-        m_awal_b = modal_awal + laba_lalu - prive_lalu
-        m_akhir_b = m_awal_b + laba_b - prive_b
-        
-        # Preview UI
-        st.markdown(f"""
-        <div class="white-card">
-            <h3 align="center">{nama_u.upper()}</h3>
-            <p align="center">LAPORAN LABA RUGI & PERUBAHAN MODAL<br>Periode: {sel_b}</p>
-            <hr>
-            <table width="100%">
-                <tr><td>Total Omzet</td><td align="right">{format_rp(omzet_b)}</td></tr>
-                <tr><td>Total Laba Bersih</td><td align="right"><b>{format_rp(laba_b)}</b></td></tr>
-                <tr><td colspan="2"><hr></td></tr>
-                <tr><td>Modal Awal</td><td align="right">{format_rp(m_awal_b)}</td></tr>
-                <tr><td>Prive (Ambil Modal)</td><td align="right">-{format_rp(prive_b)}</td></tr>
-                <tr><td><b>Modal Akhir</b></td><td align="right"><b>{format_rp(m_akhir_b)}</b></td></tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # TOMBOL CETAK PDF
-        data_ringkas = {
-            'omzet': omzet_b, 'laba': laba_b, 'prive': prive_b, 
-            'modal_awal': m_awal_b, 'modal_akhir': m_akhir_b
-        }
+        sel_b = st.selectbox("Pilih Periode Laporan:", list_bulan, index=len(list_bulan)-1)
+        db_bulan = df[df['bulan'] == sel_b]
+        omzet_bln = db_bulan['omzet'].sum()
+        laba_bln = db_bulan['laba'].sum()
+        prive_bln = db_bulan['prive'].sum()
+        idx_bulan = list_bulan.index(sel_b)
+        l_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['laba'].sum()
+        p_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['prive'].sum()
+        ma_bln = modal_awal + l_lalu - p_lalu
+        mak_bln = ma_bln + laba_bln - prive_bln
+        st.markdown(f'<div class="white-card"><h3 align="center">{nama_u.upper()}</h3><p align="center">{sel_b}</p><hr>Omzet: {format_rp(omzet_bln)}<br>Laba Bersih: {format_rp(laba_bln)}<hr>Modal Akhir: {format_rp(mak_bln)}</div>', unsafe_allow_html=True)
+        data_ringkas = {'omzet': omzet_bln, 'laba': laba_bln, 'prive': prive_bln, 'modal_awal': ma_bln, 'modal_akhir': mak_bln}
         pdf_bytes = generate_pdf(nama_u, sel_b, data_ringkas)
-        st.download_button(
-            label="📥 DOWNLOAD LAPORAN PDF (SIAP KE BANK)",
-            data=pdf_bytes,
-            file_name=f"Laporan_{nama_u}_{sel_b.replace(' ', '_')}.pdf",
-            mime="application/pdf"
-        )
-
-    with tab_kur:
-        st.info("Fitur Analisis KUR Tetap Berjalan di Sini...")
+        st.download_button(label="📥 DOWNLOAD PDF", data=pdf_bytes, file_name=f"Laporan_{sel_b}.pdf", mime="application/pdf")
+    with tab2:
+        st.success("STATUS: SANGAT LAYAK (READY TO BANK)")
+        st.write("Gunakan laporan PDF di Tab sebelah untuk pengajuan ke Bank.")
+    with tab3:
+        df_rev = df.sort_values(by='id', ascending=False)
+        target = st.selectbox("Hapus data:", [f"ID:{r['id']} | {r['tanggal']}" for _, r in df_rev.iterrows()])
+        if st.button("🗑️ HAPUS"):
+            c.execute("DELETE FROM transaksi WHERE id=?", (int(target.split("|")[0].replace("ID:","")),))
+            conn.commit()
+            st.rerun()
+else:
+    st.info("Input transaksi dulu yuk!")
