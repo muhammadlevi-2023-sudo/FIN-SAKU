@@ -230,3 +230,41 @@ with tab_kur:
                     </ul>
                 </div>
                 """, unsafe_allow_html=True)
+              with tab_rev:
+        st.subheader("🛠️ Manajer Data (Koreksi Transaksi)")
+        st.write("Gunakan bagian ini untuk menghapus data yang salah input.")
+        
+        # Urutkan dari yang terbaru supaya mudah nyarinya
+        df_rev = df.sort_values(by='id', ascending=False)
+        
+        if not df_rev.empty:
+            # Membuat list pilihan yang rapi
+            pilihan_hapus = []
+            for _, row in df_rev.iterrows():
+                pilihan_hapus.append(f"ID: {row['id']} | {row['tanggal']} | Omzet: {format_rp(row['omzet'])}")
+            
+            target = st.selectbox("Pilih Transaksi yang Ingin Dihapus:", pilihan_hapus)
+            
+            # Ambil ID saja dari teks pilihan
+            id_to_delete = int(target.split(" | ")[0].replace("ID: ", ""))
+            
+            # Tombol Konfirmasi
+            col_tombol1, col_tombol2 = st.columns([1, 3])
+            with col_tombol1:
+                konfirmasi = st.checkbox("Saya yakin ingin menghapus")
+            
+            with col_tombol2:
+                if st.button("🗑️ HAPUS PERMANEN"):
+                    if konfirmasi:
+                        try:
+                            c.execute("DELETE FROM transaksi WHERE id = ?", (id_to_delete,))
+                            conn.commit()
+                            st.success(f"Data ID {id_to_delete} berhasil dihapus!")
+                            # Paksa aplikasi untuk refresh data terbaru
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Gagal menghapus: {e}")
+                    else:
+                        st.warning("Centang kotak konfirmasi dulu ya!")
+        else:
+            st.info("Belum ada data yang bisa direvisi.")
