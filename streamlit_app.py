@@ -58,7 +58,7 @@ with st.sidebar:
     modal_sekarang = modal_awal + (total_laba - total_prive)
     
     st.markdown("---")
-    st.markdown(f"Laba Bersih: **{format_rp(total_laba)}**")
+    st.markdown(f"Total Laba: **{format_rp(total_laba)}**")
     st.markdown(f"Kas Saat Ini: <h3 style='color:#FFD700;'>{format_rp(modal_sekarang)}</h3>", unsafe_allow_html=True)
     
     st.write("---")
@@ -67,69 +67,86 @@ with st.sidebar:
     prive_pct = st.slider("Jatah Pribadi (%)", 0, 50, 30)
 
 # --- DASHBOARD UTAMA ---
-st.title(f"Dashboard: {nama_u}")
+st.title(f"Dashboard Keuangan: {nama_u}")
 
-# GRID UTAMA: INPUT | REVISI | TIPS
-col_in, col_rev, col_tips = st.columns([1.2, 1, 1])
+# GRID UTAMA: INPUT & REVISI
+col_in, col_rev = st.columns([1.5, 1])
 
 with col_in:
-    st.subheader("📝 Input Transaksi")
-    tgl = st.date_input("Tanggal", datetime.now())
-    omzet = st.number_input("Total Omzet", value=0)
+    st.markdown('<div class="white-card">', unsafe_allow_html=True)
+    st.subheader("📝 Pencatatan Transaksi")
+    
+    # KEMBALI: PILIHAN PERIODE (Harian, Mingguan, Bulanan)
+    rekap_mode = st.radio("Metode Catat:", ["Harian", "Mingguan", "Bulanan"], horizontal=True)
+    
+    c_tgl, c_omz = st.columns(2)
+    with c_tgl:
+        tgl = st.date_input("Tanggal", datetime.now())
+    with c_omz:
+        omzet = st.number_input(f"Total Omzet ({rekap_mode})", value=0)
+    
     laba_in = omzet - (omzet * (hpp_val / hrg_val)) if hrg_val > 0 else 0
     prive_in = laba_in * (prive_pct / 100) if laba_in > 0 else 0
-    if st.button("🔔 SIMPAN"):
+    
+    st.markdown(f"**Estimasi Laba Bersih: <span style='color:green;'>{format_rp(laba_in)}</span>**", unsafe_allow_html=True)
+    
+    if st.button("🔔 SIMPAN KE LAPORAN"):
         c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                  (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", omzet, laba_in, prive_in, "Harian"))
+                  (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", omzet, laba_in, prive_in, rekap_mode))
         conn.commit()
+        st.success("Data berhasil disimpan!")
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_rev:
-    st.subheader("🛠️ Revisi Data")
+    st.markdown('<div class="white-card">', unsafe_allow_html=True)
+    st.subheader("🛠️ Revisi Terakhir")
     if not df.empty:
+        # Menampilkan 5 data terakhir untuk direvisi cepat
         df_rev = df.sort_values(by='id', ascending=False).head(5)
-        pilih = st.selectbox("Pilih yg salah:", [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_rev.iterrows()])
-        if st.button("🗑️ Hapus"):
-            c.execute(f"DELETE FROM transaksi WHERE id = {int(pilih.split(' | ')[0])}")
+        pilih = st.selectbox("Pilih data untuk dihapus:", [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_rev.iterrows()])
+        if st.button("🗑️ HAPUS DATA"):
+            id_hapus = int(pilih.split(' | ')[0])
+            c.execute(f"DELETE FROM transaksi WHERE id = {id_hapus}")
             conn.commit()
+            st.warning(f"Data ID {id_hapus} telah dihapus.")
             st.rerun()
-    else: st.info("Belum ada data")
+    else:
+        st.info("Belum ada data untuk direvisi.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-with col_tips:
-    st.subheader("💡 Tips Bank")
-    st.markdown(f"""<div class="white-card" style="padding:10px; font-size:14px;">
-        Prive Anda <b>{prive_pct}%</b>. BRI suka jika prive di bawah 30% agar modal usaha tetap kuat.
-    </div>""", unsafe_allow_html=True)
-
-# --- AREA LAPORAN & KUR ---
+# --- AREA ANALISIS & KUR ---
 if not df.empty:
     st.write("---")
     t_rep, t_kur = st.tabs(["📊 LAPORAN PERUBAHAN MODAL", "🏦 PRODUK KUR BRI"])
     
     with t_rep:
-        sel_b = st.selectbox("Pilih Bulan:", df['bulan'].unique())
+        sel_b = st.selectbox("Pilih Bulan Laporan:", df['bulan'].unique())
         db = df[df['bulan'] == sel_b]
         l_bln, p_bln = db['laba'].sum(), db['prive'].sum()
+        nambah_kas = l_bln - p_bln
         
-        st.markdown(f"""<div class="white-card">
+        st.markdown(f"""
+        <div class="white-card">
             <h3 style="text-align:center;">Laporan Kas - {sel_b}</h3>
+            <hr>
             <table style="width:100%; font-size:18px; color:black;">
-                <tr><td>Laba Bersih</td><td style="text-align:right; color:green;">{format_rp(l_bln)}</td></tr>
-                <tr><td>Prive (Jajan)</td><td style="text-align:right; color:red;">({format_rp(p_bln)})</td></tr>
-                <tr style="font-weight:bold; border-top:2px solid black;">
-                    <td>✅ PENAMBAHAN KAS</td><td style="text-align:right;">{format_rp(l_bln - p_bln)}</td>
+                <tr><td>Total Omzet (Uang Masuk)</td><td style="text-align:right;">{format_rp(db['omzet'].sum())}</td></tr>
+                <tr><td>Laba Bersih (Profit)</td><td style="text-align:right; color:green;">{format_rp(l_bln)}</td></tr>
+                <tr><td>Prive (Jajan Pribadi)</td><td style="text-align:right; color:red;">({format_rp(p_bln)})</td></tr>
+                <tr style="font-weight:bold; border-top:2px solid black; background-color: #f1f1f1;">
+                    <td>✅ PENAMBAHAN KAS MODAL</td><td style="text-align:right;">{format_rp(nambah_kas)}</td>
                 </tr>
             </table>
-            <p style="margin-top:10px; font-size:14px;">Modal bertumbuh <b>{format_rp(l_bln-p_bln)}</b> bulan ini.</p>
+            <p style="margin-top:10px; font-size:14px;">Bulan ini, modal usaha Anda bertambah nyata sebesar <b>{format_rp(nambah_kas)}</b>.</p>
         </div>""", unsafe_allow_html=True)
 
     with t_kur:
         laba_akhir = df.iloc[-1]['laba']
         rpc_aman = laba_akhir * 0.35
         
-        st.markdown(f"### 🏦 Pilihan Produk KUR sesuai Kemampuan ({format_rp(rpc_aman)}/bln)")
+        st.markdown(f"### 🏦 Pilihan Pinjaman KUR BRI (Batas Aman: {format_rp(rpc_aman)}/bln)")
         
-        # Simulasi 3 Produk KUR BRI
         produks = [
             {"nama": "KUR Super Mikro", "plafon": 10000000, "tenor": 12},
             {"nama": "KUR Mikro A", "plafon": 25000000, "tenor": 24},
@@ -138,17 +155,18 @@ if not df.empty:
         
         cols = st.columns(3)
         for i, p in enumerate(produks):
+            # Rumus: (Plafon / Tenor) + (Bunga 0.5% per bulan)
             cicilan = (p['plafon']/p['tenor']) + (p['plafon']*0.005)
             is_aman = cicilan <= rpc_aman
             with cols[i]:
-                st.markdown(f"""<div class="white-card" style="border-left-color: {'#28a745' if is_aman else '#ff4b4b'};">
+                st.markdown(f"""<div class="white-card" style="border-left-color: {'#28a745' if is_aman else '#ff4b4b'}; height: 250px;">
                     <h4 style="margin:0;">{p['nama']}</h4>
                     <h2 style="margin:0;">{format_rp(p['plafon'])}</h2>
-                    <p style="margin:0;">Tenor: {p['tenor']} Bln</p>
+                    <p style="margin:0; color:gray;">Tenor {p['tenor']} Bulan</p>
                     <hr>
-                    <p style="margin:0;">Cicilan/bln:</p>
-                    <b style="font-size:18px; color:{'green' if is_aman else 'red'};">{format_rp(cicilan)}</b>
-                    <p style="font-size:12px;">{'✅ AMAN' if is_aman else '⚠️ TERLALU BERAT'}</p>
+                    <p style="margin:0;">Cicilan Bulanan:</p>
+                    <b style="font-size:20px; color:{'green' if is_aman else 'red'};">{format_rp(cicilan)}</b><br>
+                    <span style="font-size:12px;">{'✅ AMAN DISETUJUI' if is_aman else '⚠️ RISIKO DITOLAK'}</span>
                 </div>""", unsafe_allow_html=True)
         
-        st.info("💡 **Mengapa ambil plafon ini?** Pilih yang berstatus ✅ AMAN agar Anda tidak kesulitan membayar dan catatan kredit di BRI tetap bersih.")
+        st.info("💡 **Saran Strategis:** Mantri BRI lebih suka menyetujui pinjaman yang cicilannya di bawah 35% laba bersih (Status ✅ AMAN).")
