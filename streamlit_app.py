@@ -316,8 +316,7 @@ with tab2:
                 with col_l2:
                     st.write("""
                     * **Kenapa Perlu?** Syarat wajib KUR adalah usaha sudah berjalan minimal 6 bulan. Dokumen ini adalah "Akte Kelahiran" bisnis Anda.
-                    * **Cara Dapet:** 1. **NIB:** Daftar mandiri di situs **oss.go.id** (Gratis & cuma 10 menit).
-                        2. **SKU:** Minta ke Kantor Kelurahan/Desa dengan membawa pengantar RT/RW.
+                    * **Cara Dapet: **NIB (Nomor Induk Berusaha)** bisa didapatkan melalu daftar secara mandiri di situs **oss.go.id** (Gratis & cuma 10 menit) dan untuk **SKU (Surat Keterangan Usaha)** bisa  dibuatkan surat tersebut melalui Kantor Kelurahan/Desa dengan membawa surat pengantar dari RT/RW.
                     """)
 
             with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)", expanded=True):
