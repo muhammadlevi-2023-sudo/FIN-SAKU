@@ -141,35 +141,88 @@ if not df.empty:
         </div>
         """, unsafe_allow_html=True)
 
-    with t_kur:
+   with t_kur:
+        # --- LOGIKA ANALISIS ---
         laba_akhir = df.iloc[-1]['laba']
-        rpc_aman = laba_akhir * 0.35
-        plafon = (rpc_aman * 24) if (rpc_aman * 24) >= 10000000 else 10000000
+        rpc_aman = laba_akhir * 0.35  # Batas aman 35% laba
         
-        st.markdown("### 🏦 Analisis Pinjaman (KUR BRI)")
+        # Simulasi Plafon (Contoh 24 Bulan)
+        plafon_aman = (rpc_aman * 24)
+        # Standar KUR Mikro minimal biasanya 10jt
+        plafon_tampil = plafon_aman if plafon_aman >= 10000000 else 10000000
+        
+        # Hitung Cicilan (Bunga KUR 6% per tahun = 0.5% per bulan)
+        bunga_per_bln = plafon_tampil * 0.005
+        cicilan_pokok = plafon_tampil / 24
+        total_cicilan = cicilan_pokok + bunga_per_bln
+
+        st.markdown("### 🏦 Analisis Strategis Pinjaman")
+        
+        # 1. STATUS KELAYAKAN (Visual & Tegas)
+        if laba_akhir > total_cicilan and modal_sekarang > modal_awal:
+            st.success("### ✅ STATUS: SANGAT LAYAK (AMAN)")
+            pesan_status = "Berdasarkan catatan, laba Anda mampu membayar cicilan tanpa mengganggu operasional."
+        elif laba_akhir > total_cicilan:
+            st.warning("### ⚠️ STATUS: LAYAK (DENGAN CATATAN)")
+            pesan_status = "Anda mampu mencicil, tapi modal Anda sedang menurun. Sebaiknya tekan pengeluaran pribadi (Prive)."
+        else:
+            st.error("### ❌ STATUS: TIDAK DISARANKAN")
+            pesan_status = "Laba Anda saat ini terlalu kecil untuk mengambil pinjaman sebesar ini."
+
+        # 2. KARTU INFORMASI UTAMA
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown(f"""<div class="white-card">
-                <h4>Status Kelayakan</h4>
-                <p>Laba Terakhir: <b>{format_rp(laba_akhir)}</b></p>
-                <p>Cicilan Aman/Bulan: <b style="color:green;">{format_rp(rpc_aman)}</b></p>
-                <p>Status Modal: <b>{'✅ TUMBUH' if modal_sekarang > modal_awal else '⚠️ TERGERUS'}</b></p>
-            </div>""", unsafe_allow_html=True)
-        with c2:
-            st.markdown(f"""<div class="white-card">
-                <h4>Simulasi KUR</h4>
-                <p>Saran Plafon: <b>{format_rp(plafon)}</b></p>
-                <p>Bunga: <b>6% per Tahun</b></p>
-                <p>Angsuran (24 Bln): <b>{format_rp((plafon/24) + (plafon*0.005))}</b></p>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="white-card">
+                <p style="margin:0;">Kemampuan Cicil Maksimal:</p>
+                <h2 style="color:#28a745; margin:0;">{format_rp(rpc_aman)} /bln</h2>
+                <p style='font-size:12px; color:gray;'>*Angka ini adalah batas aman agar Anda tidak gagal bayar.</p>
+                <hr>
+                <p style="margin:0;">Rekomendasi Plafon:</p>
+                <h2 style="color:#001f3f; margin:0;">{format_rp(plafon_tampil)}</h2>
+                <p style='font-size:12px; color:gray;'>*Saran pinjaman untuk jangka waktu 24 bulan.</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-# REVISI
-st.write("---")
-with st.expander("🛠️ Hapus Data Salah"):
-    df_rev = pd.read_sql_query("SELECT * FROM transaksi ORDER BY id DESC", conn)
-    if not df_rev.empty:
-        target = st.selectbox("Pilih data:", [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_rev.iterrows()])
-        if st.button("Hapus"):
-            c.execute(f"DELETE FROM transaksi WHERE id = {int(target.split(' | ')[0])}")
-            conn.commit()
-            st.rerun()
+        with c2:
+            st.markdown(f"""
+            <div class="white-card">
+                <p style="margin:0;">Rincian Cicilan (Tenor 2 thn):</p>
+                <table style="width:100%; color:black;">
+                    <tr><td>Pokok</td><td style="text-align:right;">{format_rp(cicilan_pokok)}</td></tr>
+                    <tr><td>Bunga (6%)</td><td style="text-align:right;">{format_rp(bunga_per_bln)}</td></tr>
+                    <tr style="font-weight:bold; border-top:1px solid #ccc;">
+                        <td>Total Bayar</td>
+                        <td style="text-align:right;">{format_rp(total_cicilan)}</td>
+                    </tr>
+                </table>
+                <p style="margin-top:10px; font-size:13px; font-style:italic;">
+                💡 Tips: Total bunga hanya sekitar {format_rp(bunga_per_bln)} per bulan. Sangat ringan jika laba Anda stabil.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 3. CHECKLIST PERSIAPAN KE BANK
+        st.markdown("---")
+        col_list, col_info = st.columns([1, 1])
+        with col_list:
+            st.markdown("""
+            <div class="white-card">
+                <h4>📋 Dokumen Yang Harus Dibawa:</h4>
+                <input type="checkbox" checked> KTP Suami & Istri (Jika sudah nikah)<br>
+                <input type="checkbox" checked> Kartu Keluarga (KK)<br>
+                <input type="checkbox" checked> NIB (Nomor Induk Berusaha)<br>
+                <input type="checkbox" checked> Laporan Laba Rugi (Cetak dari Aplikasi ini)<br>
+                <p style="font-size:12px; color:red; margin-top:10px;">*Pastikan tidak punya tunggakan di Pinjol/Bank lain agar lolos SLIK/BI Checking.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col_info:
+            st.markdown(f"""
+            <div class="white-card">
+                <h4>💡 Mengapa Angka Ini Muncul?</h4>
+                <p>Bank BRI menyukai UMKM yang <b>Bankable</b>. Artinya, usaha Anda punya catatan yang jelas.</p>
+                <p>Aplikasi <b>FIN-Saku</b> menghitung laba bersih Anda dan memastikan cicilan tidak lebih dari 35% laba. 
+                Ini adalah kunci rahasia agar pengajuan Anda disetujui oleh Mantri BRI.</p>
+            </div>
+            """, unsafe_allow_html=True)
