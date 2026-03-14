@@ -55,7 +55,7 @@ with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
     st.subheader("👤 Profil Bisnis")
-    nama_u = st.text_input("Nama Usaha", "UMKM Maju Bersama")
+    nama_u = st.text_input("Nama Usaha", "Levi Makmur Jaya")
     jenis_b = st.selectbox("Jenis Bisnis", ["Kuliner", "Retail/Toko", "Jasa", "Manufaktur"])
     m_awal_input = st.number_input("Modal Awal (Uang Kas)", value=7000000)
     
