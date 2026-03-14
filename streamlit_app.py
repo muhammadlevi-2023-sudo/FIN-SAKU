@@ -46,7 +46,7 @@ with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
     st.subheader("🏠 Profil Usaha")
-    nama_u = st.text_input("Nama Usaha", "UMKM Maju")
+    nama_u = st.text_input("Nama Usaha", "Levi Makmur Jaya")
     
     # FITUR REQUEST: REAL-TIME FORMATTING MODAL
     modal_input = st.text_input("Modal Kas Awal (Rp)", "0")
@@ -58,6 +58,7 @@ with st.sidebar:
     hpp_raw = st.text_input("HPP (Modal) /Produk", "5000")
     hrg_raw = st.text_input("Harga Jual /Produk", "15000")
     prive_pct = st.slider("Jatah Prive (%)", 0, 100, 30)
+    st.caption("BRI menyarankan Prive < 50% dari laba.")
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Pusat Analisis: {nama_u}")
