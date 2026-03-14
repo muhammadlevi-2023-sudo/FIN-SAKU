@@ -113,10 +113,11 @@ with st.sidebar:
         st.success("✅ Alokasi aman.")
 
 # 5. DASHBOARD: PENCATATAN
-st.title(f"🚀 Dashboard Strategis: {nama_u}")
+st.title(f"📈 Pembukuan Strategis: {nama_u}")
 
 with st.container():
-    st.subheader("📝 Catat Transaksi")
+    st.subheader("📝 Catat Pemasukan")
+    st.info("Bapak/Ibu, silakan masukkan total penjualan bersih yang diterima.")
     c1, c2, c3 = st.columns([1.5, 1.5, 1])
     with c1:
         tipe_in = st.selectbox("Frekuensi Input", ["Harian", "Mingguan", "Bulanan"])
