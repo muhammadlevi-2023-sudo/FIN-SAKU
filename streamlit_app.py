@@ -28,30 +28,37 @@ def clean_to_int(teks):
     return int(angka) if angka else 0
 
 # 2. UI CUSTOM: NAVY & GOLD (High Contrast - Teks Anti Hilang)
+# Masukkan ini di bawah baris import kamu
 st.markdown("""
 <style>
-    /* Paksa background terang agar teks tidak putih di atas putih */
-    .stApp { background-color: #f8f9fa; color: #1a1a1a; }
-    
-    /* Sidebar Navy Gelap */
-    [data-testid="stSidebar"] { background-color: #001f3f; border-right: 2px solid #FFD700; }
-    [data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 { 
+    /* 1. Paksa Background Terang & Teks Navy Gelap di Seluruh Aplikasi */
+    .stApp, .stApp * { 
+        color: #001f3f !important; 
+    }
+
+    /* 2. Khusus Sidebar Tetap Navy & Teks Putih (Biar Keren) */
+    [data-testid="stSidebar"], [data-testid="stSidebar"] * { 
         color: #ffffff !important; 
     }
-    
-    /* Box Edukasi (Teks Navy Gelap - Kontras Tinggi) */
-    .edu-box { 
-        background-color: #ffffff; padding: 25px; border-radius: 12px; 
-        border-left: 10px solid #FFD700; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        margin-bottom: 25px; color: #001f3f !important;
-    }
-    .edu-box h3, .edu-box p, .edu-box li { color: #001f3f !important; font-weight: 500; }
 
-    /* Laporan Biru Akuntansi (Style PT Enggan Mundur) */
-    .report-card { 
-        background-color: #dbeafe; padding: 30px; border-radius: 10px; 
-        color: #001f3f !important; border: 2px solid #001f3f; 
-        margin-bottom: 20px;
+    /* 3. Paksa Box Edukasi Kuning agar Teksnya Hitam Tajam */
+    .edu-box, .edu-box * { 
+        background-color: #ffffff !important;
+        color: #000000 !important; 
+    }
+
+    /* 4. Paksa Tab (Harian, Bulanan, KUR) agar Teksnya Muncul */
+    button[data-baseweb="tab"] * { 
+        color: #001f3f !important; 
+    }
+
+    /* 5. Paksa Laporan Biru (PT Enggan Mundur) agar Teksnya Navy */
+    .report-card, .report-card * { 
+        background-color: #dbeafe !important;
+        color: #001f3f !important; 
+    }
+</style>
+""", unsafe_allow_html=True)
     }
     
     /* Kartu KUR Bankable (Navy-Gold) */
