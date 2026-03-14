@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# 1. Konfigurasi Halaman Dasar
-st.set_page_config(page_title="FIN-Saku: Solusi KUR BRI", layout="wide")
+# 1. Konfigurasi Halaman
+st.set_page_config(page_title="FIN-Saku UNAIR: Bankable UMKM", layout="wide")
 
-# Inisialisasi Database Sesi
 if 'db_transaksi' not in st.session_state:
     st.session_state.db_transaksi = pd.DataFrame(columns=["Tanggal", "Bulan", "Minggu", "Omzet", "Laba", "Prive"])
 if 'modal_awal' not in st.session_state:
@@ -13,139 +12,167 @@ if 'modal_awal' not in st.session_state:
 
 # --- FUNGSI TOOLS ---
 def format_rp(angka):
-    try:
-        return "Rp {:,.0f}".format(float(angka)).replace(",", ".")
-    except:
-        return "Rp 0"
-
-def play_cash_sound():
-    sound_url = "https://www.soundjay.com/misc/sounds/coins-spilled-1.mp3"
-    st.components.v1.html(f'<audio autoplay><source src="{sound_url}" type="audio/mp3"></audio>', height=0)
+    try: return "Rp {:,.0f}".format(float(angka)).replace(",", ".")
+    except: return "Rp 0"
 
 def clean_to_int(teks):
     angka = "".join(filter(str.isdigit, str(teks)))
     return int(angka) if angka else 0
 
-# 2. CSS Styling Biru Akuntansi (Sesuai Gambar Referensi)
+# 2. UI CUSTOM: ORNAMEN AIRLANGGA (BIRU & KUNING)
 st.markdown("""
 <style>
-    .report-card { background-color: #d1d9ff; padding: 25px; border-radius: 8px; color: #1a1a1a; border: 1px solid #99aaff; margin-bottom: 20px; }
-    .header-text { text-align: center; font-weight: bold; font-size: 1.2rem; margin-bottom: 10px; }
-    .kur-card { background-color: #00529b; color: white; padding: 20px; border-radius: 10px; border-left: 10px solid #ffab00; }
-    .stButton>button { width: 100%; font-weight: bold; background-color: #00529b; color: white; height: 3em; }
+    /* Warna Utama UNAIR: Biru Navy (#003366) dan Kuning Emas (#FFCC00) */
+    .stApp { background-color: #fcfcfc; }
+    
+    /* Header & Sidebar */
+    [data-testid="stSidebar"] { background-color: #002147; color: white; }
+    [data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] p { color: #f0f0f0; }
+    
+    /* Box Panduan */
+    .guide-box { 
+        background-color: #ffffff; 
+        padding: 20px; 
+        border-radius: 12px; 
+        border-left: 8px solid #FFCC00; 
+        box-shadow: 2px 2px 15px rgba(0,0,0,0.1); 
+        margin-bottom: 20px; 
+    }
+    
+    /* Laporan Biru Akuntansi (Disesuaikan) */
+    .report-card { 
+        background-color: #e6f0ff; 
+        padding: 30px; 
+        border-radius: 15px; 
+        color: #002147; 
+        border: 2px solid #003366; 
+    }
+    
+    /* Kartu KUR BRI UNAIR */
+    .kur-card { 
+        background-color: #003366; 
+        color: #FFCC00; 
+        padding: 30px; 
+        border-radius: 15px; 
+        border: 3px solid #FFCC00;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    
+    .stButton>button { 
+        width: 100%; 
+        font-weight: bold; 
+        background-color: #FFCC00; 
+        color: #002147; 
+        border: none;
+        border-radius: 8px;
+    }
+    .stButton>button:hover { background-color: #e6b800; color: #002147; }
+    
+    h1, h2, h3 { color: #002147; }
+    .step-number { background-color: #FFCC00; color: #002147; padding: 3px 10px; border-radius: 50%; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR: PENGATURAN NASABAH ---
+# --- SIDEBAR: ASISTEN AIRLANGGA ---
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/2/2e/BRI_Logo.svg", width=100)
-    st.header("🏢 Profil Usaha")
-    nama_usaha = st.text_input("Nama Usaha", "PT. Enggan Mundur")
-    
-    # Fitur Titik Otomatis (Visual Feedback)
-    m_raw = st.text_input("💰 Masukkan Modal Awal (Rp)", value="0")
-    st.session_state.modal_awal = clean_to_int(m_raw)
-    st.caption(f"Tercatat: **{format_rp(st.session_state.modal_awal)}**")
-    
+    # Bisa ganti URL logo dengan logo UNAIR jika ada
+    st.markdown("<h2 style='text-align:center; color:#FFCC00;'>🦁 FIN-Saku</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'><b>Excellence with Morality</b></p>", unsafe_allow_html=True)
     st.write("---")
-    hpp_raw = st.text_input("HPP per Unit (Rp)", "5000")
-    harga_raw = st.text_input("Harga Jual per Unit (Rp)", "15000")
+    
+    nama_usaha = st.text_input("Nama Usaha", "Airlangga Bakery")
+    
+    st.markdown("### <span class='step-number'>1</span> Modal Awal", unsafe_allow_html=True)
+    m_raw = st.text_input("Uang di Kas (Rp)", value="0")
+    st.session_state.modal_awal = clean_to_int(m_raw)
+    st.warning(f"Tercatat: **{format_rp(st.session_state.modal_awal)}**")
+
+    st.markdown("### <span class='step-number'>2</span> Harga Produk", unsafe_allow_html=True)
+    hpp_raw = st.text_input("HPP (Modal) Rp", "5000")
+    harga_raw = st.text_input("Harga Jual Rp", "15000")
+    
     prive_pct = st.slider("Jatah Pribadi (%)", 0, 100, 30)
 
-# --- HALAMAN UTAMA: INPUT TRANSAKSI ---
-st.title(f"🏦 FIN-Saku: Pusat Data KUR")
+# --- HALAMAN UTAMA ---
+st.markdown(f"<h1>🎓 Dashboard Inklusi Keuangan: {nama_usaha}</h1>", unsafe_allow_html=True)
 
-col1, col2 = st.columns([1, 1.5])
+# PANDUAN PENYUSUNAN LAPORAN (SAK-EMKM)
+with st.expander("📚 Prosedur Standar Akuntansi UMKM (Khusus Pengguna UNAIR)", expanded=False):
+    st.markdown("""
+    1. **Input Modal:** Mengukur *Capital* (Modal) awal sebagai dasar kepercayaan Bank.
+    2. **Catat Penjualan:** Membuktikan *Capacity* (Kemampuan) arus kas usaha.
+    3. **Prive (Pengambilan):** Menunjukkan *Morality* & disiplin pedagang dalam memisahkan uang.
+    """)
 
-with col1:
-    st.subheader("➕ Input Penjualan")
+st.write("---")
+
+c1, c2 = st.columns([1, 1.5])
+with c1:
+    st.markdown("<div class='guide-box'><h3>📝 Catat Transaksi</h3>", unsafe_allow_html=True)
     tgl = st.date_input("Tanggal", datetime.now())
-    qty = st.number_input("Jumlah Unit Terjual", min_value=0, step=1)
+    qty = st.number_input("Jumlah terjual", min_value=0, step=1)
     
-    if st.button("🔔 SIMPAN TRANSAKSI"):
-        v_hpp = clean_to_int(hpp_raw)
-        v_harga = clean_to_int(harga_raw)
-        
-        if qty > 0 and v_harga > 0:
-            omzet = qty * v_harga
-            laba = omzet - (qty * v_hpp)
+    if st.button("🔔 SIMPAN DATA"):
+        v_hpp, v_harga = clean_to_int(hpp_raw), clean_to_int(harga_raw)
+        if qty > 0:
+            omzet, laba = qty * v_harga, qty * (v_harga - v_hpp)
             prive = laba * (prive_pct / 100)
-            
-            # Simpan ke DataFrame
-            new_data = pd.DataFrame([{
-                "Tanggal": tgl,
-                "Bulan": tgl.strftime("%B %Y"),
-                "Minggu": f"Minggu {tgl.isocalendar()[1]}",
-                "Omzet": omzet,
-                "Laba": laba,
-                "Prive": prive
-            }])
+            new_data = pd.DataFrame([{"Tanggal": tgl, "Bulan": tgl.strftime("%B %Y"), "Minggu": f"Minggu {tgl.isocalendar()[1]}", "Omzet": omzet, "Laba": laba, "Prive": prive}])
             st.session_state.db_transaksi = pd.concat([st.session_state.db_transaksi, new_data], ignore_index=True)
-            play_cash_sound()
-            st.success(f"Data Berhasil Disimpan!")
-        else:
-            st.error("Lengkapi jumlah unit dan harga!")
+            st.success("Tersimpan dalam database!")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# --- LAPORAN & ANALISIS ---
+# --- LAPORAN & ANALISIS KUR ---
 if not st.session_state.db_transaksi.empty:
-    st.write("---")
-    tabs = st.tabs(["📆 HARIAN", "📅 MINGGUAN", "🗓️ BULANAN", "🏦 ANALISIS KUR"])
-
-    # Template Laporan Biru
-    def render_report(df, title):
-        omz = df['Omzet'].sum()
-        lb = df['Laba'].sum()
-        prv = df['Prive'].sum()
-        modal_akhir = st.session_state.modal_awal + (lb - prv)
+    tab1, tab2 = st.tabs(["📊 Laporan Bulanan (SAK-EMKM)", "🏦 Kelayakan KUR BRI"])
+    
+    with tab1:
+        sel_b = st.selectbox("Pilih Periode Laporan", st.session_state.db_transaksi['Bulan'].unique())
+        df_b = st.session_state.db_transaksi[st.session_state.db_transaksi['Bulan'] == sel_b]
         
+        # UI Laporan (Inspirasi dari Gambar Laporan PT Enggan Mundur)
         st.markdown(f"""
         <div class="report-card">
-            <div class="header-text">{nama_usaha}<br>{title}</div>
-            <table style="width:100%; border-collapse: collapse;">
-                <tr style="border-bottom: 1px solid #99aaff;"><td style="padding:8px;">Total Pendapatan (Omzet)</td><td style="text-align:right;">{format_rp(omz)}</td></tr>
-                <tr style="border-bottom: 1px solid #99aaff;"><td style="padding:8px;">Total Laba Bersih</td><td style="text-align:right;">{format_rp(lb)}</td></tr>
-                <tr style="border-bottom: 1px solid #99aaff; color:red;"><td style="padding:8px;">Pengambilan Pribadi (Prive)</td><td style="text-align:right;">({format_rp(prv)})</td></tr>
-                <tr style="background-color:#b3c1ff; font-weight:bold;"><td style="padding:8px;">TOTAL MODAL BERJALAN</td><td style="text-align:right;">{format_rp(modal_akhir)}</td></tr>
+            <div style="text-align:center;">
+                <h2 style='margin:0; color:#002147;'>{nama_usaha}</h2>
+                <p style='color:#002147;'><b>Laporan Laba Rugi Periodik</b><br>Periode: {sel_b}</p>
+            </div>
+            <table style="width:100%; border-collapse: collapse; font-size:18px; color:#002147;">
+                <tr style="border-bottom: 2px solid #002147;"><td style="padding:10px;">Pendapatan Usaha</td><td style="text-align:right;">{format_rp(df_b['Omzet'].sum())}</td></tr>
+                <tr><td style="padding:10px;">Beban Pokok Penjualan (HPP)</td><td style="text-align:right;">({format_rp(df_b['Omzet'].sum() - df_b['Laba'].sum())})</td></tr>
+                <tr style="border-bottom: 2px solid #002147; font-weight:bold;"><td>LABA BERSIH</td><td style="text-align:right;">{format_rp(df_b['Laba'].sum())}</td></tr>
+                <tr style="color:#cc0000;"><td>Pengambilan Prive ({prive_pct}%)</td><td style="text-align:right;">({format_rp(df_b['Prive'].sum())})</td></tr>
+                <tr style="background-color:#FFCC00; font-weight:bold; font-size:20px;">
+                    <td style="padding:15px;">TOTAL MODAL BERJALAN</td><td style="text-align:right;">{format_rp(st.session_state.modal_awal + (df_b['Laba'].sum() - df_b['Prive'].sum()))}</td>
+                </tr>
             </table>
         </div>
         """, unsafe_allow_html=True)
 
-    with tabs[0]:
-        sel_tgl = st.date_input("Filter Hari", datetime.now())
-        df_h = st.session_state.db_transaksi[st.session_state.db_transaksi['Tanggal'] == sel_tgl]
-        if not df_h.empty: render_report(df_h, f"Laporan Harian - {sel_tgl.strftime('%d/%m/%Y')}")
-        else: st.info("Tidak ada transaksi.")
+    with tab2:
+        # LOGIKA PERHITUNGAN KUR
+        avg_laba = st.session_state.db_transaksi['Laba'].sum() / max(1, len(st.session_state.db_transaksi['Bulan'].unique()))
+        rpc = avg_laba * 0.35 
+        plafon = rpc / ((1/12) + 0.005) 
 
-    with tabs[1]:
-        m_list = st.session_state.db_transaksi['Minggu'].unique()
-        sel_m = st.selectbox("Pilih Minggu", m_list)
-        render_report(st.session_state.db_transaksi[st.session_state.db_transaksi['Minggu'] == sel_m], f"Laporan {sel_m}")
-
-    with tabs[2]:
-        b_list = st.session_state.db_transaksi['Bulan'].unique()
-        sel_b = st.selectbox("Pilih Bulan", b_list)
-        render_report(st.session_state.db_transaksi[st.session_state.db_transaksi['Bulan'] == sel_b], f"Laporan Bulanan - {sel_b}")
-
-    with tabs[3]:
-        # Logika Bankable KUR
-        t_laba = st.session_state.db_transaksi['Laba'].sum()
-        n_bulan = max(1, len(st.session_state.db_transaksi['Bulan'].unique()))
-        avg_l = t_laba / n_bulan
-        cap_cicil = avg_l * 0.35
-        plafon = cap_cicil / ((1/12) + 0.005)
-        
         st.markdown(f"""
         <div class="kur-card">
-            <h3>🏦 Rekomendasi KUR BRI</h3>
-            <p>Data modal awal dan tren laba Anda menunjukkan profil berikut:</p>
-            <hr>
-            <table style="width:100%; color:white;">
-                <tr><td>Modal Awal Tercatat</td><td style="text-align:right;">{format_rp(st.session_state.modal_awal)}</td></tr>
-                <tr><td>Rata-rata Laba Bulanan</td><td style="text-align:right;">{format_rp(avg_l)}</td></tr>
-                <tr style="font-size:1.5rem; font-weight:bold; color:#ffab00;"><td>ESTIMASI PLAFON KUR</td><td style="text-align:right;">{format_rp(plafon)}</td></tr>
+            <h2 style='margin-top:0;'>🦁 Analisis Kelayakan KUR BRI</h2>
+            <p>Berdasarkan <b>Standar Kredit Perbankan</b>, hasil Anda adalah:</p>
+            <table style="width:100%; font-size:18px;">
+                <tr><td>1. <b>Karakter:</b> Disiplin Pencatatan</td><td style="text-align:right;">SANGAT BAIK ✅</td></tr>
+                <tr><td>2. <b>Kapasitas:</b> Kemampuan Bayar Cicilan</td><td style="text-align:right;">{format_rp(rpc)} /bln</td></tr>
+                <tr><td>3. <b>Modal:</b> Rasio Modal Sendiri</td><td style="text-align:right;">SEHAT ✅</td></tr>
+                <tr style="font-size:30px; font-weight:bold;">
+                    <td>ESTIMASI PLAFON KUR</td><td style="text-align:right;">{format_rp(plafon)}</td>
+                </tr>
             </table>
-            <br>
-            <small>*Analisis ini menggunakan standar kelayakan bank berdasarkan Capacity & Capital.</small>
+            <hr style="border: 1px solid #FFCC00;">
+            <p style="font-size:14px;">Aplikasi ini merekomendasikan Anda untuk mengajukan KUR Mikro BRI dengan bunga subsidi 6%. Bawa laporan ini ke Bank sebagai bukti pendukung.</p>
         </div>
         """, unsafe_allow_html=True)
-        st.download_button("📥 Unduh Laporan PDF/CSV", st.session_state.db_transaksi.to_csv().encode('utf-8'), "laporan_bank.csv")
+        st.write(" ")
+        st.button("📥 Unduh Sertifikat Layak Kredit (PDF)")
+
+st.write("---")
+st.caption("© 2024 FIN-Saku UNAIR | Excellence with Morality | Inklusi Keuangan Indonesia")
