@@ -1,132 +1,151 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import base64
 
 # 1. Konfigurasi Halaman
-st.set_page_config(page_title="FIN-Saku Bank-Ready", layout="wide")
+st.set_page_config(page_title="FIN-Saku Pro Bank", layout="wide")
 
 # Inisialisasi Database Sesi
 if 'transaksi' not in st.session_state:
     st.session_state.transaksi = []
-if 'profil' not in st.session_state:
-    st.session_state.profil = {}
+if 'modal_awal' not in st.session_state:
+    st.session_state.modal_awal = 0.0
+
+# Fungsi Suara Uang (Simulasi via HTML)
+def play_sound():
+    sound_file = "https://www.soundjay.com/misc/sounds/coins-spilled-1.mp3"
+    html_str = f"""
+        <audio autoplay>
+            <source src="{sound_file}" type="audio/mp3">
+        </audio>
+    """
+    st.components.v1.html(html_str, height=0)
 
 # 2. Styling BRI & Inklusi
 st.markdown("""
     <style>
-    .main-title { font-size: 32px; font-weight: bold; color: #00529b; text-align: center; }
-    .sub-title { font-size: 20px; color: #00529b; margin-bottom: 20px; }
-    .stButton>button { width: 100%; border-radius: 10px; font-weight: bold; }
-    .report-card { padding: 20px; border: 1px solid #ddd; border-radius: 10px; background-color: #f9f9f9; }
+    .main-title { font-size: 30px; font-weight: bold; color: #00529b; text-align: center; }
+    .card { padding: 15px; border-radius: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; margin-bottom: 10px; }
+    .stNumberInput input { font-size: 20px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">🏦 FIN-Saku: Financial Hub UMKM</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🏦 FIN-Saku: Laporan Keuangan Standar Bank</div>', unsafe_allow_html=True)
 
-# --- SIDEBAR: PROFIL USAHA (ANALISIS 5C) ---
+# --- SIDEBAR: SETTING AWAL (PENTING UNTUK NERACA) ---
 with st.sidebar:
-    st.header("📋 Profil & Analisis 5C")
-    st.session_state.profil['nama_usaha'] = st.text_input("Nama Usaha", placeholder="Warung Maju Jaya")
-    st.session_state.profil['bidang'] = st.selectbox("Bidang Usaha", ["Kuliner", "Jasa", "Dagang/Ritel", "Produksi"])
-    st.session_state.profil['lama_usaha'] = st.number_input("Lama Usaha (Bulan)", min_value=0)
+    st.header("⚙️ Pengaturan Awal Usaha")
+    st.info("Isi data ini sekali saja saat memulai usaha.")
+    st.session_state.modal_awal = st.number_input("💰 Modal Awal (Uang di Kas/Bank)", min_value=0, step=100000)
     
     st.write("---")
-    st.write("**Analisis Kapasitas (Capacity)**")
-    hpp = st.number_input("Harga Pokok Produksi (HPP) per Unit", min_value=0, step=500)
-    harga_jual = st.number_input("Harga Jual per Unit", min_value=0, step=500)
+    st.subheader("📦 Analisis Produk")
+    hpp = st.number_input("Biaya Modal per Produk (HPP)", min_value=0, step=500)
+    harga_jual = st.number_input("Harga Jual ke Pelanggan", min_value=0, step=500)
     
     if harga_jual > 0:
         margin = harga_jual - hpp
-        persen_margin = (margin / harga_jual) * 100
-        st.metric("Margin Keuntungan", f"Rp {margin:,.0f}", f"{persen_margin:.1f}%")
-        st.session_state.profil['margin_ratio'] = margin / harga_jual
+        st.metric("Keuntungan per Produk", f"Rp {margin:,.0f}")
 
-# --- HALAMAN UTAMA: PENCATATAN ---
-col_input, col_history = st.columns([1, 1])
+# --- HALAMAN UTAMA: INPUT TRANSAKSI ---
+col1, col2 = st.columns([1, 1])
 
-with col_input:
-    st.markdown('<div class="sub-title">🎙️ Pencatatan Penjualan</div>', unsafe_allow_html=True)
-    st.info("Gunakan suara di keyboard untuk input cepat!")
+with col1:
+    st.subheader("🎙️ Catat Penjualan")
+    st.caption("Klik mikrofon keyboard HP untuk input suara.")
+    jml_unit = st.number_input("Berapa banyak yang laku?", min_value=0, step=1)
     
-    jml_unit = st.number_input("Jumlah Unit Terjual", min_value=0, step=1)
-    
-    if st.button("➕ Simpan Transaksi"):
+    if st.button("🔔 SIMPAN TRANSAKSI"):
         if jml_unit > 0 and harga_jual > 0:
             total_sales = jml_unit * harga_jual
             total_hpp = jml_unit * hpp
-            laba_kotor = total_sales - total_hpp
+            laba = total_sales - total_hpp
             
             st.session_state.transaksi.append({
                 "Tanggal": datetime.now().strftime("%d/%m/%Y"),
-                "Unit": jml_unit,
                 "Omzet": total_sales,
                 "HPP": total_hpp,
-                "Laba": laba_kotor
+                "Laba": laba
             })
-            st.toast("Data disimpan!")
+            play_sound() # Memicu suara uang
+            st.success(f"Berhasil! Uang masuk Rp {total_sales:,.0f}")
         else:
-            st.error("Set Harga Jual di sidebar dulu!")
+            st.error("Isi data produk di samping dulu!")
 
-with col_history:
-    st.markdown('<div class="sub-title">📝 Riwayat Hari Ini</div>', unsafe_allow_html=True)
+with col2:
+    st.subheader("📝 Catatan Hari Ini")
     if st.session_state.transaksi:
         df = pd.DataFrame(st.session_state.transaksi)
-        st.table(df.style.format({"Omzet": "{:,.0f}", "Laba": "{:,.0f}"}))
-        if st.button("Clear Data"):
+        st.dataframe(df.style.format({"Omzet": "{:,.0f}", "Laba": "{:,.0f}"}))
+        if st.button("Hapus Riwayat"):
             st.session_state.transaksi = []
             st.rerun()
 
-# --- BAGIAN LAPORAN KEUANGAN STANDAR BANK ---
-st.write("---")
+# --- BAGIAN OUTUPUT: LAPORAN KEUANGAN 4 PILAR ---
 if st.session_state.transaksi:
-    st.header("📊 Laporan Keuangan & Rekomendasi KUR")
-    
-    total_omzet = sum(t['Omzet'] for t in st.session_state.transaksi)
-    total_hpp_all = sum(t['HPP'] for t in st.session_state.transaksi)
-    total_laba_kotor = total_omzet - total_hpp_all
-    
-    # 1. Laporan Laba Rugi Sederhana
-    st.subheader("1. Laporan Laba Rugi (Income Statement)")
-    st.markdown(f"""
-    <div class="report-card">
-    <table style="width:100%">
-        <tr><td><b>Pendapatan Penjualan</b></td><td style="text-align:right">Rp {total_omzet:,.0f}</td></tr>
-        <tr><td>Harga Pokok Penjualan (HPP)</td><td style="text-align:right">(Rp {total_hpp_all:,.0f})</td></tr>
-        <tr style="border-top: 1px solid black"><td><b>LABA KOTOR</b></td><td style="text-align:right"><b>Rp {total_laba_kotor:,.0f}</b></td></tr>
-    </table>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # 2. Laporan Perubahan Modal & Porsi Pribadi
-    st.subheader("2. Alokasi Modal & Dana Pribadi (Drawing)")
-    porsi_pribadi = total_laba_kotor * 0.4 # Misal 40% dari laba boleh diambil
-    reinvestasi = total_laba_kotor - porsi_pribadi
-    
-    st.markdown(f"""
-    <div class="report-card">
-    <table style="width:100%">
-        <tr><td>Laba Bersih Tersedia</td><td style="text-align:right">Rp {total_laba_kotor:,.0f}</td></tr>
-        <tr><td>Porsi Gaji Owner / Pribadi (Max 40%)</td><td style="text-align:right; color:red">Rp {porsi_pribadi:,.0f}</td></tr>
-        <tr style="border-top: 1px solid black"><td><b>Penambahan Modal Usaha</b></td><td style="text-align:right; color:green"><b>Rp {reinvestasi:,.0f}</b></td></tr>
-    </table>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # 3. Rekomendasi KUR BRI berdasarkan 5C
     st.write("---")
-    st.subheader("🏦 Rekomendasi KUR BRI")
+    st.header("📑 Laporan Keuangan SAK-EMKM")
     
-    cicilan_aman = total_laba_kotor * 0.3 # Maks 30% dari laba
-    plafon = cicilan_aman / ((1/12) + 0.005)
-    
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.metric("Skor Kapasitas Bayar", f"Rp {cicilan_aman:,.0f}/bln")
-        st.write("**Tips Bank:** Pertahankan margin di atas 20% agar plafon naik.")
-    with col_b:
-        st.metric("Estimasi Plafon KUR", f"Rp {plafon:,.0f}")
-        st.link_button("Ajukan KUR BRI Online", "https://kur.bri.co.id/")
+    # Hitung Variabel Utama
+    total_sales = sum(t['Omzet'] for t in st.session_state.transaksi)
+    total_hpp = sum(t['HPP'] for t in st.session_state.transaksi)
+    total_laba = total_sales - total_hpp
+    porsi_pribadi = total_laba * 0.3 # 30% untuk pribadi
+    laba_ditahan = total_laba - porsi_pribadi
+    kas_akhir = st.session_state.modal_awal + total_sales - porsi_pribadi
 
-    # Download Report
-    csv = df.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Unduh Laporan SAK-EMKM Lengkap", csv, "laporan_keuangan.csv", "text/csv")
+    tab1, tab2, tab3, tab4 = st.tabs(["📉 Laba Rugi", "⚖️ Neraca", "🔄 Arus Kas", "📈 Perubahan Modal"])
+
+    with tab1:
+        st.subheader("Laporan Laba Rugi")
+        st.markdown(f"""
+        <div class='card'>
+        Total Pendapatan: **Rp {total_sales:,.0f}**<br>
+        Total Beban (HPP): **(Rp {total_hpp:,.0f})**<hr>
+        <b>LABA BERSIH: Rp {total_laba:,.0f}</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with tab2:
+        st.subheader("Laporan Posisi Keuangan (Neraca)")
+        st.markdown(f"""
+        <div class='card'>
+        <b>ASET (Harta):</b><br>
+        Kas di Tangan: Rp {kas_akhir:,.0f}<br><hr>
+        <b>KEWAJIBAN & MODAL:</b><br>
+        Utang: Rp 0<br>
+        Modal Akhir: Rp {st.session_state.modal_awal + laba_ditahan:,.0f}<br><hr>
+        <i>Status: <b>BALANCE ✅</b></i>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with tab3:
+        st.subheader("Laporan Arus Kas")
+        st.write("Menunjukkan aliran uang masuk dan keluar secara nyata.")
+        st.markdown(f"""
+        <div class='card'>
+        Saldo Awal Kas: Rp {st.session_state.modal_awal:,.0f}<br>
+        Penerimaan Pelanggan: + Rp {total_sales:,.0f}<br>
+        Pengambilan Pribadi (Prive): - Rp {porsi_pribadi:,.0f}<br><hr>
+        <b>SALDO AKHIR KAS: Rp {kas_akhir:,.0f}</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with tab4:
+        st.subheader("Laporan Perubahan Ekuitas")
+        st.markdown(f"""
+        <div class='card'>
+        Modal Awal: Rp {st.session_state.modal_awal:,.0f}<br>
+        Laba Bersih: + Rp {total_laba:,.0f}<br>
+        Pengambilan Pribadi: - Rp {porsi_pribadi:,.0f}<br><hr>
+        <b>MODAL AKHIR: Rp {st.session_state.modal_awal + laba_ditahan:,.0f}</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # --- REKOMENDASI BANK ---
+    st.write("---")
+    st.subheader("🏦 Rekomendasi Mantri BRI")
+    cicilan_aman = total_laba * 0.3
+    st.success(f"Berdasarkan Laba Rugi, Anda aman mencicil maksimal **Rp {cicilan_aman:,.0f}/bulan**.")
+    st.download_button("📥 Download Laporan Lengkap (CSV)", df.to_csv().encode('utf-8'), "laporan_bank.csv")
