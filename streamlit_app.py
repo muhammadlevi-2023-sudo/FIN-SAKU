@@ -4,10 +4,10 @@ import sqlite3
 from datetime import datetime
 
 # 1. KONFIGURASI HALAMAN
-st.set_page_config(page_title="FIN-Saku Pro", layout="wide")
+st.set_page_config(page_title="FIN-Saku UNAIR Edition", layout="wide")
 
-# --- DATABASE ---
-conn = sqlite3.connect('finsaku_modern.db', check_same_thread=False)
+# --- DATABASE ENGINE ---
+conn = sqlite3.connect('finsaku_unair.db', check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS transaksi 
              (id INTEGER PRIMARY KEY, tanggal TEXT, bulan TEXT, omzet REAL, laba REAL, prive REAL, periode TEXT)''')
@@ -17,161 +17,157 @@ conn.commit()
 def format_rp(angka):
     return f"Rp {int(angka):,.0f}".replace(",", ".")
 
-# 2. UI STYLING - MODERN DARK SLATE & MINT (Anti-UNAIR)
+# 2. UI STYLING - TEMA UNIVERSITAS AIRLANGGA (BIRU & KUNING)
 st.markdown("""
 <style>
-    /* Background & Font */
-    .stApp { background-color: #0f172a; color: #f8fafc; }
+    /* Background Navy UNAIR */
+    .stApp { background-color: #001f3f; color: #ffffff; }
     
-    /* Menghilangkan elemen kosong/dekorasi tidak perlu */
-    .stMarkdown div[data-testid="stMarkdownContainer"] hr { border-top: 1px solid #1e293b; }
-    
-    /* Card Style */
-    .card {
-        background: #1e293b; padding: 24px; border-radius: 16px;
-        border: 1px solid #334155; margin-bottom: 20px;
+    /* Menghilangkan elemen dashboard kosong yang mengganggu */
+    [data-testid="stVerticalBlock"] > div:empty { display: none !important; }
+    hr { border-top: 2px solid #FFD700 !important; }
+
+    /* Card Style - Putih Bersih agar Kontras */
+    .unair-card {
+        background: #ffffff; padding: 25px; border-radius: 15px;
+        border-left: 8px solid #FFD700; margin-bottom: 20px;
+        color: #001f3f !important; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
+    .unair-card h3, .unair-card p, .unair-card b { color: #001f3f !important; }
     
-    /* Metric Card */
-    .metric-card {
-        background: #0ea5e9; color: #ffffff; padding: 20px;
-        border-radius: 12px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    
-    /* Button Style */
+    /* Button Style - Kuning Emas */
     .stButton>button {
-        background: #0ea5e9 !important; color: #ffffff !important;
-        border-radius: 10px; border: none; font-weight: 600; width: 100%; height: 3em;
+        background: #FFD700 !important; color: #001f3f !important;
+        font-weight: bold; border-radius: 8px; border: none; height: 3em;
     }
     
-    /* Headers */
-    h1, h2, h3 { color: #38bdf8 !important; font-family: 'Inter', sans-serif; }
+    /* Header Gold */
+    h1, h2, h3 { color: #FFD700 !important; }
     
-    /* Sidebar */
-    [data-testid="stSidebar"] { background-color: #0f172a; border-right: 1px solid #1e293b; }
+    /* Sidebar styling */
+    [data-testid="stSidebar"] { background-color: #001226; border-right: 2px solid #FFD700; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATA PROCESSING ---
+# --- LOGIKA DATA ---
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
 total_laba = df['laba'].sum() if not df.empty else 0
 total_prive = df['prive'].sum() if not df.empty else 0
 
-# --- SIDEBAR ---
+# --- SIDEBAR: PROFIL & MODAL ---
 with st.sidebar:
-    st.markdown("### 🏦 **Profil Bisnis**")
-    nama_usaha = st.text_input("Nama Usaha", "UMKM Maju")
-    modal_awal = st.number_input("Modal Awal Kas (Rp)", value=7000000)
+    st.markdown("<h2 style='text-align:center;'>🏢 FIN-Saku</h2>", unsafe_allow_html=True)
+    st.write("---")
+    nama_u = st.text_input("Nama Usaha", "UMKM Maju")
+    m_awal = st.number_input("Modal Awal Kas (Rp)", value=7000000)
     
-    st.markdown("---")
-    st.markdown("### ⚙️ **Parameter Profit**")
+    st.write("---")
     hpp = st.number_input("HPP Produk", value=5000)
     jual = st.number_input("Harga Jual", value=15000)
-    prive_pct = st.slider("Jatah Prive %", 0, 100, 30)
+    p_pct = st.slider("Jatah Prive %", 0, 100, 30)
     
-    kas_sekarang = modal_awal + (total_laba - total_prive)
+    k_sekarang = m_awal + (total_laba - total_prive)
     st.markdown(f"""
-    <div style="background:#0ea5e9; padding:15px; border-radius:10px; margin-top:20px;">
-        <p style="margin:0; font-size:14px; color:#e0f2fe;">Kas Saat Ini:</p>
-        <h3 style="margin:0; color:white !important;">{format_rp(kas_sekarang)}</h3>
+    <div style="background:#FFD700; padding:15px; border-radius:10px; color:#001f3f; text-align:center;">
+        <p style="margin:0; font-weight:bold;">Kas Modal Saat Ini:</p>
+        <h3 style="margin:0; color:#001f3f !important;">{format_rp(k_sekarang)}</h3>
     </div>
     """, unsafe_allow_html=True)
 
-# --- DASHBOARD UTAMA ---
-st.title(f"Dashboard Keuangan: {nama_usaha}")
+# --- KONTEN UTAMA ---
+st.title(f"Pusat Kendali Bisnis: {nama_u}")
 
-# 1. INPUT & REVISI (DIBERSIHKAN TOTAL)
-col_left, col_right = st.columns([1.6, 1])
+# 1. FORM INPUT & REVISI (Tanpa Elemen Kosong)
+col_a, col_b = st.columns([1.5, 1])
 
-with col_left:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("📝 Pencatatan Baru")
-    mode = st.radio("Metode:", ["Harian", "Mingguan", "Bulanan"], horizontal=True)
+with col_a:
+    st.markdown('<div class="unair-card">', unsafe_allow_html=True)
+    st.subheader("📝 Catat Uang Masuk")
+    mode = st.radio("Metode Pencatatan:", ["Harian", "Mingguan", "Bulanan"], horizontal=True)
     
     c1, c2 = st.columns(2)
-    with c1: tgl = st.date_input("Pilih Tanggal", datetime.now())
-    with c2: omzet = st.number_input(f"Input Omzet ({mode})", value=0, step=10000)
+    with c1: tgl = st.date_input("Tanggal Transaksi", datetime.now())
+    with c2: omz = st.number_input(f"Total Omzet ({mode})", value=0, step=10000)
     
-    laba_calc = omzet - (omzet * (hpp/jual)) if jual > 0 else 0
-    prive_calc = laba_calc * (prive_pct/100)
+    l_calc = omz - (omz * (hpp/jual)) if jual > 0 else 0
+    p_calc = l_calc * (p_pct/100)
     
-    if st.button("📥 SIMPAN TRANSAKSI"):
+    if st.button("💾 SIMPAN DATA KE SISTEM"):
         c.execute("INSERT INTO transaksi (tanggal, bulan, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?)",
-                  (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), omzet, laba_calc, prive_calc, mode))
+                  (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), omz, l_calc, p_calc, mode))
         conn.commit()
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-with col_right:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
+with col_b:
+    st.markdown('<div class="unair-card">', unsafe_allow_html=True)
     st.subheader("🛠️ Koreksi Data")
     if not df.empty:
-        # Menampilkan data terakhir dengan gaya list yang bersih
-        last_data = df.sort_values(by='id', ascending=False).head(3)
-        for _, row in last_data.iterrows():
+        last = df.sort_values(by='id', ascending=False).head(3)
+        for _, row in last.iterrows():
             ca, cb = st.columns([4, 1])
-            ca.markdown(f"**{row['tanggal']}**<br><small>{format_rp(row['omzet'])}</small>", unsafe_allow_html=True)
+            ca.write(f"**{row['tanggal']}** | {format_rp(row['omzet'])}")
             if cb.button("🗑️", key=f"del_{row['id']}"):
                 c.execute(f"DELETE FROM transaksi WHERE id={row['id']}")
                 conn.commit()
                 st.rerun()
-    else:
-        st.info("Belum ada data untuk dikoreksi.")
+    else: st.info("Belum ada data untuk diperbaiki.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 2. ANALISIS PERUBAHAN MODAL & KUR
-st.markdown("---")
-tab1, tab2 = st.tabs(["📊 PERUBAHAN MODAL", "🏦 KELAYAKAN PINJAMAN"])
+# 2. ANALISIS KELAYAKAN & MODAL
+st.write("---")
+t_modal, t_bank = st.tabs(["📊 LAPORAN MODAL", "🏦 ANALISIS LAYAK PINJAM"])
 
-with tab1:
+with t_modal:
     if not df.empty:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        sel_bln = st.selectbox("Pilih Periode:", df['bulan'].unique())
-        f_df = df[df['bulan'] == sel_bln]
+        st.markdown('<div class="unair-card">', unsafe_allow_html=True)
+        sel_b = st.selectbox("Pilih Bulan Laporan:", df['bulan'].unique())
+        f_df = df[df['bulan'] == sel_b]
         
-        t_laba, t_prive = f_df['laba'].sum(), f_df['prive'].sum()
-        kenaikan = t_laba - t_prive
+        t_l, t_p = f_df['laba'].sum(), f_df['prive'].sum()
+        bersih = t_l - t_p
         
-        st.markdown(f"### Laporan Modal: {sel_bln}")
+        st.write(f"### Ringkasan Kas Bulan {sel_b}")
         st.markdown(f"""
-        - **Total Laba Bersih:** <span style="color:#38bdf8">{format_rp(t_laba)}</span>
-        - **Prive (Konsumsi Pribadi):** <span style="color:#fb7185">-{format_rp(t_prive)}</span>
+        - Total Laba Bersih: **{format_rp(t_l)}**
+        - Total Diambil Pribadi: **-{format_rp(t_p)}**
         <hr>
-        <h2 style="margin:0;">📈 Kenaikan Kas Modal: {format_rp(kenaikan)}</h2>
-        <p style="margin-top:10px; color:#94a3b8;">Uang ini adalah 'darah' baru yang memperkuat modal usaha Anda bulan ini.</p>
+        <h2 style="color:#001f3f !important;">✅ TAMBAHAN MODAL: {format_rp(bersih)}</h2>
+        <p><i>Uang ini secara otomatis memperkuat daya tahan bisnis Anda bulan ini.</i></p>
         """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-    else: st.warning("Masukkan data penjualan untuk melihat laporan modal.")
+    else: st.warning("Silakan isi data transaksi terlebih dahulu.")
 
-with tab2:
+with t_bank:
     if not df.empty:
-        # Logika Kelayakan (Standar Perbankan 35% Laba)
-        rata_laba = df['laba'].mean() * (30 if mode == "Harian" else 1)
-        batas_cicilan = rata_laba * 0.35
+        # Menghitung batas aman cicilan (35% laba terakhir)
+        laba_ref = df['laba'].mean() * (30 if mode == "Harian" else 1)
+        batas = laba_ref * 0.35
         
         st.markdown(f"""
-        <div class="card">
-            <h3>Analisis Kredit BRI</h3>
-            <p>Berdasarkan rata-rata untung, batas cicilan bulanan yang dianggap <b>aman</b> oleh bank adalah:</p>
-            <h2 style="color:#38bdf8;">{format_rp(batas_cicilan)}</h2>
+        <div class="unair-card">
+            <h3>Seberapa Layak Anda di Mata Bank?</h3>
+            <p>Berdasarkan keuntungan usaha, cicilan bulanan yang <b>aman</b> bagi Anda adalah:</p>
+            <h2 style="color:#001f3f !important;">{format_rp(batas)} / Bulan</h2>
         </div>
         """, unsafe_allow_html=True)
 
-        skema_kur = [
-            {"nama": "Super Mikro (10jt)", "cicilan": 883000},
-            {"nama": "Mikro A (50jt)", "cicilan": 2250000},
-            {"nama": "Mikro B (100jt)", "cicilan": 4200000}
+        # Skema KUR BRI Berdasarkan Kemampuan Bayar
+        skema = [
+            {"nama": "KUR Super Mikro (10jt)", "cicilan": 883000},
+            {"nama": "KUR Mikro A (50jt)", "cicilan": 2250000},
+            {"nama": "KUR Mikro B (100jt)", "cicilan": 4200000}
         ]
         
         cols = st.columns(3)
-        for i, s in enumerate(skema_kur):
-            status_aman = s['cicilan'] <= batas_cicilan
+        for i, s in enumerate(skema):
+            layak = s['cicilan'] <= batas
             with cols[i]:
                 st.markdown(f"""
-                <div style="background:{'#065f46' if status_aman else '#7f1d1d'}; padding:20px; border-radius:12px; text-align:center;">
-                    <p style="margin:0; font-size:14px; color:#ecfdf5;">{s['nama']}</p>
+                <div style="background:{'#006400' if layak else '#8B0000'}; padding:20px; border-radius:12px; text-align:center; color:white;">
+                    <p style="margin:0; font-size:14px;">{s['nama']}</p>
                     <h3 style="margin:5px 0; color:white !important;">{format_rp(s['cicilan'])}/bln</h3>
-                    <p style="margin:0; font-weight:bold;">{'✅ LAYAK' if status_aman else '⚠️ BERAT'}</p>
+                    <p style="margin:0; font-weight:bold;">{'✅ LAYAK PINJAM' if layak else '⚠️ BEBAN BERAT'}</p>
                 </div>
                 """, unsafe_allow_html=True)
-    else: st.warning("Data transaksi belum cukup untuk simulasi pinjaman.")
+    else: st.warning("Data belum cukup untuk menganalisis kelayakan kredit.")
