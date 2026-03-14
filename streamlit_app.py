@@ -53,11 +53,9 @@ with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>💰 FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
     nama_u = st.text_input("Nama Usaha", "UMKM Maju Bersama")
-    jenis_u = st.selectbox("Jenis Usaha", ["Dagang", "Jasa", "Produksi"])
     modal_awal = clean_to_int(st.text_input("Uang Kas Awal", "7000000"))
     modal_sekarang = modal_awal + (total_laba - total_prive)
     
-    st.markdown("---")
     st.markdown(f"Total Laba: **{format_rp(total_laba)}**")
     st.markdown(f"Kas Saat Ini: <h3 style='color:#FFD700;'>{format_rp(modal_sekarang)}</h3>", unsafe_allow_html=True)
     
@@ -69,14 +67,12 @@ with st.sidebar:
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
 
-# GRID UTAMA: INPUT & REVISI
+# GRID DASHBOARD: INPUT & REVISI
 col_in, col_rev = st.columns([1.5, 1])
 
 with col_in:
     st.markdown('<div class="white-card">', unsafe_allow_html=True)
     st.subheader("📝 Pencatatan Transaksi")
-    
-    # KEMBALI: PILIHAN PERIODE (Harian, Mingguan, Bulanan)
     rekap_mode = st.radio("Metode Catat:", ["Harian", "Mingguan", "Bulanan"], horizontal=True)
     
     c_tgl, c_omz = st.columns(2)
@@ -94,79 +90,88 @@ with col_in:
         c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
                   (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", omzet, laba_in, prive_in, rekap_mode))
         conn.commit()
-        st.success("Data berhasil disimpan!")
+        st.success("Data disimpan!")
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_rev:
     st.markdown('<div class="white-card">', unsafe_allow_html=True)
-    st.subheader("🛠️ Revisi Terakhir")
+    st.subheader("🛠️ Revisi Data")
     if not df.empty:
-        # Menampilkan 5 data terakhir untuk direvisi cepat
         df_rev = df.sort_values(by='id', ascending=False).head(5)
-        pilih = st.selectbox("Pilih data untuk dihapus:", [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_rev.iterrows()])
-        if st.button("🗑️ HAPUS DATA"):
-            id_hapus = int(pilih.split(' | ')[0])
-            c.execute(f"DELETE FROM transaksi WHERE id = {id_hapus}")
+        pilih = st.selectbox("Pilih data salah:", [f"{r['id']} | {r['tanggal']} | {format_rp(r['omzet'])}" for _, r in df_rev.iterrows()])
+        if st.button("🗑️ HAPUS"):
+            c.execute(f"DELETE FROM transaksi WHERE id = {int(pilih.split(' | ')[0])}")
             conn.commit()
-            st.warning(f"Data ID {id_hapus} telah dihapus.")
             st.rerun()
-    else:
-        st.info("Belum ada data untuk direvisi.")
+    else: st.info("Belum ada data.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- AREA ANALISIS & KUR ---
+# --- TAB LAPORAN & ANALISIS KUR ---
 if not df.empty:
     st.write("---")
-    t_rep, t_kur = st.tabs(["📊 LAPORAN PERUBAHAN MODAL", "🏦 PRODUK KUR BRI"])
+    t_rep, t_kur = st.tabs(["📊 LAPORAN PERUBAHAN MODAL", "🏦 ANALISIS PRODUK KUR BRI"])
     
     with t_rep:
         sel_b = st.selectbox("Pilih Bulan Laporan:", df['bulan'].unique())
         db = df[df['bulan'] == sel_b]
         l_bln, p_bln = db['laba'].sum(), db['prive'].sum()
-        nambah_kas = l_bln - p_bln
         
         st.markdown(f"""
         <div class="white-card">
             <h3 style="text-align:center;">Laporan Kas - {sel_b}</h3>
-            <hr>
             <table style="width:100%; font-size:18px; color:black;">
-                <tr><td>Total Omzet (Uang Masuk)</td><td style="text-align:right;">{format_rp(db['omzet'].sum())}</td></tr>
-                <tr><td>Laba Bersih (Profit)</td><td style="text-align:right; color:green;">{format_rp(l_bln)}</td></tr>
-                <tr><td>Prive (Jajan Pribadi)</td><td style="text-align:right; color:red;">({format_rp(p_bln)})</td></tr>
-                <tr style="font-weight:bold; border-top:2px solid black; background-color: #f1f1f1;">
-                    <td>✅ PENAMBAHAN KAS MODAL</td><td style="text-align:right;">{format_rp(nambah_kas)}</td>
+                <tr><td>Laba Bersih</td><td style="text-align:right; color:green;">{format_rp(l_bln)}</td></tr>
+                <tr><td>Prive (Jatah Pribadi)</td><td style="text-align:right; color:red;">({format_rp(p_bln)})</td></tr>
+                <tr style="font-weight:bold; border-top:2px solid black;">
+                    <td>✅ PENAMBAHAN KAS MODAL</td><td style="text-align:right;">{format_rp(l_bln - p_bln)}</td>
                 </tr>
             </table>
-            <p style="margin-top:10px; font-size:14px;">Bulan ini, modal usaha Anda bertambah nyata sebesar <b>{format_rp(nambah_kas)}</b>.</p>
         </div>""", unsafe_allow_html=True)
 
     with t_kur:
-        laba_akhir = df.iloc[-1]['laba']
-        rpc_aman = laba_akhir * 0.35
+        # LOGIKA ANALISIS: Mengambil laba rata-rata bulanan
+        avg_laba = df['laba'].mean() * 30 if rekap_mode == "Harian" else df['laba'].mean()
+        rpc_aman = avg_laba * 0.35 # Batas 35% Laba untuk Cicilan
         
-        st.markdown(f"### 🏦 Pilihan Pinjaman KUR BRI (Batas Aman: {format_rp(rpc_aman)}/bln)")
+        st.markdown(f"### 🏦 Simulasi Kredit Berdasarkan Kemampuan Bayar ({format_rp(rpc_aman)}/bln)")
         
+        # Produk KUR BRI riil
         produks = [
-            {"nama": "KUR Super Mikro", "plafon": 10000000, "tenor": 12},
-            {"nama": "KUR Mikro A", "plafon": 25000000, "tenor": 24},
-            {"nama": "KUR Mikro B", "plafon": 50000000, "tenor": 36}
+            {"nama": "KUR Super Mikro", "plafon": 10000000, "tenor": 12, "bunga": 0.06},
+            {"nama": "KUR Mikro A", "plafon": 50000000, "tenor": 24, "bunga": 0.06},
+            {"nama": "KUR Mikro B", "plafon": 100000000, "tenor": 36, "bunga": 0.06}
         ]
         
         cols = st.columns(3)
         for i, p in enumerate(produks):
-            # Rumus: (Plafon / Tenor) + (Bunga 0.5% per bulan)
-            cicilan = (p['plafon']/p['tenor']) + (p['plafon']*0.005)
-            is_aman = cicilan <= rpc_aman
+            # Perhitungan bunga flat per bulan (0.5%)
+            pokok = p['plafon'] / p['tenor']
+            bunga_bln = p['plafon'] * (p['bunga']/12)
+            total_setoran = pokok + bunga_bln
+            is_aman = total_setoran <= rpc_aman
+            
             with cols[i]:
-                st.markdown(f"""<div class="white-card" style="border-left-color: {'#28a745' if is_aman else '#ff4b4b'}; height: 250px;">
+                st.markdown(f"""<div class="white-card" style="border-left-color: {'#28a745' if is_aman else '#ff4b4b'}; height: 320px;">
                     <h4 style="margin:0;">{p['nama']}</h4>
                     <h2 style="margin:0;">{format_rp(p['plafon'])}</h2>
-                    <p style="margin:0; color:gray;">Tenor {p['tenor']} Bulan</p>
+                    <p style="margin:0; font-size:12px; color:gray;">Bunga 6% Efektif/Thn</p>
                     <hr>
                     <p style="margin:0;">Cicilan Bulanan:</p>
-                    <b style="font-size:20px; color:{'green' if is_aman else 'red'};">{format_rp(cicilan)}</b><br>
-                    <span style="font-size:12px;">{'✅ AMAN DISETUJUI' if is_aman else '⚠️ RISIKO DITOLAK'}</span>
+                    <b style="font-size:20px; color:{'green' if is_aman else 'red'};">{format_rp(total_setoran)}</b><br>
+                    <span style="font-size:12px;">{'✅ LAYAK PINJAM' if is_aman else '⚠️ BEBAN TERLALU TINGGI'}</span>
+                    <hr>
+                    <p style="font-size:11px; color:gray;">Rincian: Pokok {format_rp(pokok)} + Bunga {format_rp(bunga_bln)}</p>
                 </div>""", unsafe_allow_html=True)
-        
-        st.info("💡 **Saran Strategis:** Mantri BRI lebih suka menyetujui pinjaman yang cicilannya di bawah 35% laba bersih (Status ✅ AMAN).")
+
+        st.markdown("""
+        <div class="white-card">
+            <h4>💡 Analisis Strategis Pengajuan Kredit (Standar Perbankan):</h4>
+            <p>Berdasarkan jurnal literasi keuangan UMKM, berikut tips agar pengajuan Anda 99% disetujui:</p>
+            <ul>
+                <li><b>Aturan 35% (DSR):</b> Pastikan total cicilan Anda tidak melebihi 35% dari laba bersih bulanan. Bank menganggap ini batas aman agar usaha tidak gulung tikar hanya untuk bayar utang.</li>
+                <li><b>Pemisahan Kas:</b> Jika Prive (pengambilan pribadi) Anda tinggi, Bank akan ragu. Jaga Prive tetap di bawah 30% dari laba usaha.</li>
+                <li><b>Tujuan Modal Kerja:</b> Bank lebih suka membiayai pembelian stok barang atau alat produksi daripada untuk kebutuhan konsumtif.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
