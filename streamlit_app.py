@@ -1,13 +1,13 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(page_title="FIN-Saku: Solusi Perbankan UMKM", layout="wide")
 
 # --- DATABASE ENGINE ---
-conn = sqlite3.connect('finsaku_complete_v7.db', check_same_thread=False)
+conn = sqlite3.connect('finsaku_final_v8.db', check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS transaksi 
              (id INTEGER PRIMARY KEY, tanggal TEXT, bulan TEXT, minggu TEXT, 
@@ -23,7 +23,7 @@ def clean_to_int(teks):
     angka = "".join(filter(str.isdigit, str(teks)))
     return int(angka) if angka else 0
 
-# 2. UI CUSTOM: NAVY & GOLD (SUPER CONTRAST)
+# 2. UI CUSTOM: NAVY & GOLD (ULTRA CONTRAST)
 st.markdown("""
 <style>
     .stApp { background-color: #001f3f !important; }
@@ -54,63 +54,80 @@ with st.sidebar:
     st.subheader("🏠 Profil Usaha")
     nama_u = st.text_input("Nama Usaha", "UMKM Maju Bersama")
     modal_raw = st.text_input("Uang Kas Awal (Modal)", "1000000")
-    st.markdown(f"Tercatat: **{format_rp(clean_to_int(modal_raw))}**")
     
     st.write("---")
     st.subheader("📦 Konfigurasi Produk")
     hpp_raw = st.text_input("HPP / Modal per Produk", "5000")
     hrg_raw = st.text_input("Harga Jual per Produk", "15000")
-    st.markdown(f"Margin: **{format_rp(clean_to_int(hrg_raw) - clean_to_int(hpp_raw))}** /pcs")
     
     st.write("---")
     st.subheader("👨‍👩‍👦 Alokasi Pribadi")
     prive_pct = st.slider("Jatah Prive (%)", 0, 100, 30)
-    st.caption("BRI menyarankan Prive < 50% dari laba.")
+    st.caption("Prive adalah uang yang Anda ambil untuk diri sendiri.")
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Pusat Laporan: {nama_u}")
 
-# PANDUAN CARA MENGISI
 st.markdown("""
 <div class="white-card">
-    <h3>📖 Cara Menggunakan Aplikasi:</h3>
-    <ol>
-        <li><b>Langkah 1:</b> Atur HPP dan Harga Jual di menu sidebar sebelah kiri.</li>
-        <li><b>Langkah 2:</b> Pilih mode input di bawah ini (Satuan atau Totalan).</li>
-        <li><b>Langkah 3:</b> Klik "Simpan Transaksi" setiap ada penjualan masuk.</li>
-        <li><b>Langkah 4:</b> Pantau tab "ANALISIS KUR BRI" untuk melihat kelayakan pinjaman Anda.</li>
-    </ol>
+    <h3>📖 Panduan Mencatat Rekap:</h3>
+    <p>Jika Anda mencatat <b>Mingguan/Bulanan</b>, sistem akan menghitung laba berdasarkan rata-rata margin produk Anda.</p>
 </div>
 """, unsafe_allow_html=True)
 
-# MODE INPUT
-mode = st.radio("Pilih Mode Pencatatan:", ["Mode Satuan (Item Terjual)", "Mode Totalan (Omzet Harian)"], horizontal=True)
-
-col_in, col_space = st.columns([1, 1.2])
+# --- INPUT TRANSAKSI MULTI-METODE ---
+col_in, col_edu = st.columns([1.2, 1])
 
 with col_in:
-    st.subheader("📝 Catat Transaksi")
-    tgl = st.date_input("Tanggal", datetime.now())
+    st.subheader("📝 Form Pencatatan")
     
-    if mode == "Mode Satuan (Item Terjual)":
-        qty = st.number_input("Jumlah Produk Terjual", min_value=0, step=1)
-        omzet = qty * clean_to_int(hrg_raw)
-        laba = qty * (clean_to_int(hrg_raw) - clean_to_int(hpp_raw))
-    else:
-        omzet = st.number_input("Total Uang Masuk Hari Ini", min_value=0, step=5000)
-        # Menghitung estimasi laba berdasarkan rasio HPP di sidebar
+    # Pilih Jangka Waktu
+    jangka_waktu = st.selectbox("Metode Catat:", ["Harian", "Rekap Mingguan", "Rekap Bulanan"])
+    
+    # Input Tanggal (Default hari ini)
+    tgl = st.date_input("Tanggal Pencatatan / Akhir Periode", datetime.now())
+    
+    if jangka_waktu == "Harian":
+        mode_input = st.radio("Cara Input:", ["Per Item Terjual", "Total Omzet Hari Ini"], horizontal=True)
+        if mode_input == "Per Item Terjual":
+            qty = st.number_input("Jumlah Produk Terjual", min_value=0, step=1)
+            omzet = qty * clean_to_int(hrg_raw)
+            laba = qty * (clean_to_int(hrg_raw) - clean_to_int(hpp_raw))
+        else:
+            omzet = st.number_input("Total Omzet Hari Ini", min_value=0, step=5000)
+            ratio = (clean_to_int(hrg_raw) - clean_to_int(hpp_raw)) / clean_to_int(hrg_raw) if clean_to_int(hrg_raw) > 0 else 0
+            laba = omzet * ratio
+    
+    elif jangka_waktu == "Rekap Mingguan":
+        omzet = st.number_input("Total Omzet Selama 1 Minggu", min_value=0, step=10000)
         ratio = (clean_to_int(hrg_raw) - clean_to_int(hpp_raw)) / clean_to_int(hrg_raw) if clean_to_int(hrg_raw) > 0 else 0
         laba = omzet * ratio
-    
+        
+    else: # Bulanan
+        omzet = st.number_input("Total Omzet Selama 1 Bulan", min_value=0, step=50000)
+        ratio = (clean_to_int(hrg_raw) - clean_to_int(hpp_raw)) / clean_to_int(hrg_raw) if clean_to_int(hrg_raw) > 0 else 0
+        laba = omzet * ratio
+
     prive = laba * (prive_pct / 100)
-    
-    if st.button("🔔 SIMPAN TRANSAKSI"):
+
+    if st.button("🔔 SIMPAN KE DATABASE"):
         if omzet > 0:
             c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive) VALUES (?, ?, ?, ?, ?, ?)",
                       (tgl.strftime("%Y-%m-%d"), tgl.strftime("%B %Y"), f"Minggu {tgl.isocalendar()[1]}", omzet, laba, prive))
             conn.commit()
-            st.success("Data berhasil masuk!")
+            st.success(f"Berhasil menyimpan rekap {jangka_waktu}!")
             st.rerun()
+
+with col_edu:
+    st.markdown(f"""
+    <div class="white-card">
+        <h3>🏦 Rumus KUR BRI (Kapasitas Bayar)</h3>
+        <p>BRI melihat kemampuan bayar Anda dari:</p>
+        <p><b>Cicilan Maksimal = 35% x Laba Bersih</b></p>
+        <hr>
+        <p>Contoh: Jika laba bulanan Anda Rp 3.000.000, maka BRI menganggap Anda mampu mencicil Rp 1.050.000 per bulan.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # --- LAPORAN KEUANGAN ---
 df = pd.read_sql_query("SELECT * FROM transaksi", conn)
@@ -118,48 +135,15 @@ if not df.empty:
     st.write("---")
     t_har, t_min, t_bul, t_kur = st.tabs(["📆 HARIAN", "📅 MINGGUAN", "🗓️ BULANAN", "🏦 ANALISIS KUR BRI"])
 
-    def show_table(data_df, title):
+    def render_report(data_df, title):
         o, l, p = data_df['omzet'].sum(), data_df['laba'].sum(), data_df['prive'].sum()
-        kas_masuk = l - p
+        kas_bersih = l - p
         st.markdown(f"""
         <div class="white-card">
             <h3 style="text-align:center;">{title}</h3>
             <table class="report-table">
                 <tr><td>Total Omzet</td><td style="text-align:right;">{format_rp(o)}</td></tr>
-                <tr><td>Laba Bersih Kotor</td><td style="text-align:right;">{format_rp(l)}</td></tr>
-                <tr><td>Prive (Diambil Sendiri)</td><td style="text-align:right; color:red !important;">({format_rp(p)})</td></tr>
+                <tr><td>Laba Bersih</td><td style="text-align:right;">{format_rp(l)}</td></tr>
+                <tr><td>Prive (Konsumsi)</td><td style="text-align:right; color:red !important;">({format_rp(p)})</td></tr>
                 <tr class="highlight-row">
-                    <td><b>KAS BERSIH USAHA</b></td><td style="text-align:right;"><b>{format_rp(kas_masuk)}</b></td>
-                </tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with t_har:
-        sel_t = st.date_input("Filter Hari", datetime.now(), key="harian")
-        show_table(df[df['tanggal'] == sel_t.strftime("%Y-%m-%d")], f"Laporan {sel_t.strftime('%d/%b/%Y')}")
-    
-    with t_min:
-        sel_m = st.selectbox("Pilih Minggu", df['minggu'].unique())
-        show_table(df[df['minggu'] == sel_m], f"Laporan {sel_m}")
-
-    with t_bul:
-        sel_b = st.selectbox("Pilih Bulan", df['bulan'].unique())
-        show_table(df[df['bulan'] == sel_b], f"Laporan {sel_b}")
-
-    with t_kur:
-        avg_laba = df.groupby('bulan')['laba'].sum().mean()
-        rpc = avg_laba * 0.35 # Standar BRI (Repayment Capacity)
-        plafon_est = rpc * 22 # Estimasi plafon tenor 2 tahun
-        
-        st.subheader("🏦 Skor Kelayakan BRI")
-        col1, col2 = st.columns(2)
-        col1.metric("Kapasitas Bayar (RPC)", format_rp(rpc))
-        col2.metric("Estimasi Plafon KUR", format_rp(plafon_est))
-
-        if plafon_est >= 5000000:
-            st.success("✅ STATUS: LAYAK (BANKABLE). Usaha Anda kuat untuk cicilan KUR.")
-        else:
-            st.error("⚠️ STATUS: BELUM LAYAK. Plafon di bawah Rp 5 Juta.")
-            kurang = 5000000 - plafon_est
-            st.info(f"💡 Tips: Tingkatkan laba sebesar {format_rp((kurang/22)/0.35)} lagi per bulan untuk lolos kriteria.")
+                    <td><b>SALDO KAS MASUK</b></td><td style="text
