@@ -73,30 +73,46 @@ with st.sidebar:
     if hrg_val > 0:
         margin_pct = ((hrg_val - hpp_val) / hrg_val) * 100
         st.write(f"Margin Anda: **{margin_pct:.1f}%**")
+        
+        # --- UI EFEK KATA-KATA MARGIN ---
+        if "Kuliner" in sektor:
+            target, pesan = 40, "Bisnis kuliner idealnya di atas 40-50% karena risiko bahan baku rusak tinggi."
+        elif "Retail" in sektor:
+            target, pesan = 15, "Retail margin kecil (15-20%) tidak apa-apa, yang penting putaran barang (omzet) kencang."
+        elif "Jasa" in sektor:
+            target, pesan = 60, "Bisnis jasa harusnya punya margin tinggi (>60%) karena menjual keahlian/tenaga."
+        else:
+            target, pesan = 30, "Produksi butuh margin minimal 30% untuk menutup biaya operasional mesin/alat."
+        
+        warna_margin = "lime" if margin_pct >= target else "orange"
+        st.markdown(f"<p style='color:{warna_margin}; font-size:0.85rem;'>💡 <b>Analisis Margin:</b> {pesan}</p>", unsafe_allow_html=True)
     
     prive_pct = st.slider("Jatah Pribadi/Prive (%)", 0, 50, 30)
 
 # --- DASHBOARD UTAMA ---
 st.title(f"Dashboard Keuangan: {nama_u}")
 
-# FITUR MODERN: PEMILIHAN MODE INPUT
+# --- PEMILIHAN MODE INPUT ---
 st.subheader("📝 Catat Penjualan")
 rekap_mode = st.radio("Pilih Periode Catat:", ["Harian", "Mingguan", "Bulanan"], horizontal=True)
 
 col_in, col_info = st.columns([1, 1.2])
 
 with col_in:
-    # --- LOGIKA UI DINAMIS SESUAI MODE ---
     if rekap_mode == "Harian":
         tgl_input = st.date_input("Tanggal Transaksi", datetime.now())
         val_tgl = tgl_input.strftime("%Y-%m-%d")
         val_bulan = tgl_input.strftime("%B %Y")
-        val_minggu = f"Minggu {tgl_input.isocalendar()[1]}"
+        first_day = tgl_input.replace(day=1)
+        dom = tgl_input.day
+        adjusted_dom = dom + first_day.weekday()
+        week_num = int((adjusted_dom - 1) / 7) + 1
+        val_minggu = f"Minggu ke-{week_num}"
     elif rekap_mode == "Mingguan":
-        minggu_ke = st.number_input("Minggu Ke- (1-52)", 1, 52, datetime.now().isocalendar()[1])
+        minggu_ke = st.selectbox("Pilih Minggu Ke-:", [1, 2, 3, 4, 5])
         val_tgl = f"Rekap Minggu {minggu_ke}"
         val_bulan = datetime.now().strftime("%B %Y")
-        val_minggu = f"Minggu {minggu_ke}"
+        val_minggu = f"Minggu ke-{minggu_ke}"
     else:
         list_nama_bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
         bulan_pilih = st.selectbox("Pilih Bulan", list_nama_bulan, index=datetime.now().month - 1)
@@ -105,8 +121,6 @@ with col_in:
         val_minggu = "-"
 
     omzet_in = st.number_input("Total Omzet Penjualan", value=0, step=10000)
-    
-    # Hitung Laba & Prive sesuai input sidebar
     biaya_hpp = omzet_in * (hpp_val / hrg_val) if hrg_val > 0 else 0
     laba_in = omzet_in - biaya_hpp
     prive_in = laba_in * (prive_pct / 100) if laba_in > 0 else 0
@@ -116,24 +130,25 @@ with col_in:
             c.execute("INSERT INTO transaksi (tanggal, bulan, minggu, omzet, laba, prive, periode) VALUES (?, ?, ?, ?, ?, ?, ?)",
                       (val_tgl, val_bulan, val_minggu, omzet_in, laba_in, prive_in, rekap_mode))
             conn.commit()
-            st.success(f"Data {rekap_mode} Berhasil Disimpan!")
             st.rerun()
-        else:
-            st.warning("Omzet tidak boleh nol!")
 
 with col_info:
-    st.markdown(f'<div class="white-card"><h3>💡 Tips Konsultan</h3><p>Anda sedang mencatat secara <b>{rekap_mode}</b>. Pastikan data yang dimasukkan adalah total akumulasi pada periode tersebut.</p></div>', unsafe_allow_html=True)
+    # --- UI EFEK KATA-KATA INPUT ---
+    st.markdown(f"""<div class="white-card">
+        <h3>📢 Status Input</h3>
+        <p>Anda mencatat data <b>{rekap_mode}</b> untuk periode <b>{val_minggu if rekap_mode != 'Bulanan' else val_bulan}</b>.</p>
+        <hr>
+        <p><small>Pencatatan yang disiplin membantu sistem <b>FIN-Saku</b> memberikan skor kredit yang lebih akurat untuk pengajuan KUR Anda.</small></p>
+    </div>""", unsafe_allow_html=True)
 
-# --- BAGIAN TABS (TETAP SAMA SEPERTI LOGIKA ANDA) ---
+# --- BAGIAN TABS ---
 if not df.empty:
     st.write("---")
     tab_rep, tab_kur, tab_rev = st.tabs(["📊 LAPORAN KEUANGAN", "🏦 ANALISIS KUR BRI", "🛠️ REVISI"])
     
     with tab_rep:
-        df['tgl_dt'] = pd.to_datetime(df['tanggal'], errors='coerce')
         list_bulan = df['bulan'].unique().tolist()
         sel_b = st.selectbox("Pilih Bulan Laporan:", list_bulan, index=len(list_bulan)-1)
-        
         db_bulan = df[df['bulan'] == sel_b]
         omzet_bln = db_bulan['omzet'].sum()
         laba_bln = db_bulan['laba'].sum()
@@ -142,7 +157,6 @@ if not df.empty:
         idx_bulan = list_bulan.index(sel_b)
         total_laba_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['laba'].sum()
         total_prive_lalu = df[df['bulan'].isin(list_bulan[:idx_bulan])]['prive'].sum()
-        
         modal_awal_bln = modal_awal + total_laba_lalu - total_prive_lalu
         modal_akhir_bln = modal_awal_bln + laba_bln - prive_bln
 
@@ -154,18 +168,16 @@ if not df.empty:
 
     with tab_kur:
         st.subheader("🏦 Konsultasi Strategis KUR")
-        st.write(f"Histori Laporan: **{jumlah_bulan_data} Bulan**")
-        
         if jumlah_bulan_data < 3:
             st.error("### 🚩 STATUS: BELUM LAYAK (DATA KURANG)")
-            st.info(f"Lengkapi catatan {3-jumlah_bulan_data} bulan lagi untuk analisis mendalam.")
+            st.info(f"Bank butuh minimal 3 bulan histori. Kurang {3-jumlah_bulan_data} bulan lagi!")
         else:
             st.success("### ✅ STATUS: SANGAT LAYAK (READY TO BANK)")
             max_cicilan_aman = laba_bln * 0.35
-            plafon = 50000000 if modal_akhir_bln > 15000000 else 10000000
+            plafon = 50000000 if modal_akhir_bln > 15000000 and laba_bln > 5000000 else 10000000
             produk = "KUR Mikro BRI" if plafon > 10000000 else "KUR Super Mikro BRI"
 
-            st.markdown(f'<div class="white-card"><h4>Rekomendasi Plafon:</h4><h2>{produk}: {format_rp(plafon)}</h2><p>Batas Cicilan Aman Sistem: <b>{format_rp(max_cicilan_aman)}/bln</b></p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="white-card"><h4>Rekomendasi Plafon & Produk:</h4><h2 style="color:#001f3f;">{produk}: {format_rp(plafon)}</h2><p>Batas Cicilan Aman: <b>{format_rp(max_cicilan_aman)}/bln</b></p></div>', unsafe_allow_html=True)
             
             tenor = st.select_slider("Pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36])
             total_cicilan = (plafon / tenor) + ((plafon * 0.06) / 12)
@@ -176,31 +188,33 @@ if not df.empty:
             with col_a:
                 st.markdown(f'<div class="white-card"><h4>Cicilan Per Bulan:</h4><h3>{format_rp(total_cicilan)}</h3></div>', unsafe_allow_html=True)
             with col_b:
-                warna_sisa = "green" if persen_sisa >= 70 else "orange"
+                warna_sisa = "green" if persen_sisa >= 70 else "red"
                 st.markdown(f'<div class="white-card"><h4>Sisa Laba Bersih:</h4><h3 style="color:{warna_sisa};">{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</h3></div>', unsafe_allow_html=True)
 
-            # --- ANALISIS NARASI ---
+            # --- KESIMPULAN ANALISIS DINAMIS ---
             st.write("---")
             st.subheader("📝 Kesimpulan Analisis Hasil (Credit Scoring)")
-            narasi_status = "Sangat Layak" if persen_sisa >= 70 else "Perlu Penyesuaian"
+            
+            narasi_status = "Sangat Layak" if persen_sisa >= 70 else "Perlu Penyesuaian Tenor"
+            
             st.markdown(f"""
             <div class="white-card" style="border-left: 8px solid #001f3f;">
                 Berdasarkan data bulan {sel_b}, ini adalah hasil analisis kelayakan pinjaman mandiri untuk usaha Anda. 
-                Kabar baiknya, status Anda dianggap <b>"{narasi_status}"</b>, namun ada rincian penting:
+                Kabar baiknya, status Anda dianggap <b>"{narasi_status}"</b>.
                 <br><br>
                 <b>1. Rekomendasi Pinjaman:</b><br>
-                Sistem menyarankan produk <b>{produk}</b> dengan plafon <b>{format_rp(plafon)}</b>. 
+                Sistem menyarankan <b>{produk}</b> dengan plafon <b>{format_rp(plafon)}</b>. KUR jenis ini ditujukan untuk usaha skala kecil dengan bunga yang disubsidi pemerintah.
                 <br><br>
-                <b>2. Analisis Batas Cicilan Aman:</b><br>
-                Sistem menghitung cicilan ideal Anda adalah <b>{format_rp(max_cicilan_aman)}/bulan</b>. 
-                Pada pilihan tenor {tenor} bulan, cicilan Anda menjadi <b>{format_rp(total_cicilan)}/bulan</b>.
+                <b>2. Peringatan Batas Cicilan Aman:</b><br>
+                Sistem menghitung cicilan yang "aman" untuk usaha Anda adalah <b>{format_rp(max_cicilan_aman)}/bulan</b>. 
+                Dengan tenor {tenor} bulan, cicilan Anda menjadi <b>{format_rp(total_cicilan)}/bulan</b>.
                 <br><br>
-                <b>3. Sisa Laba Bersih & Arus Kas:</b><br>
-                Setelah bayar cicilan, sisa laba Anda adalah <b>{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</b>. 
-                <br><i>*Catatan: Bank menyukai sisa laba > 70% agar arus kas tetap sehat.</i>
+                <b>3. Sisa Laba Bersih:</b><br>
+                Setelah membayar cicilan, sisa laba bersih Anda adalah <b>{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</b>. 
+                <i>Note: Bank menyukai sisa laba > 70% setelah cicilan.</i>
                 <br><br>
                 <b>Kesimpulan & Saran:</b><br>
-                {"✅ Pilihan tenor sudah tepat dan aman bagi keuangan Anda." if persen_sisa >= 70 else f"⚠️ Tenor {tenor} bulan terlihat agak <b>'memaksa'</b> keuangan Anda karena sisa laba di bawah 70%. Agar lebih mudah disetujui bank, cobalah geser slider ke 24 atau 36 bulan untuk mendekati batas aman."}
+                { "✅ Kondisi keuangan Anda sangat prima untuk cicilan ini." if persen_sisa >= 70 else f"⚠️ Simulasi {tenor} bulan ini terlihat agak <b>'memaksa'</b> keuangan Anda. Agar lebih aman dan mudah disetujui Bank, perpanjang jangka waktu (Tenor) ke 24 atau 36 bulan agar sisa laba Anda naik ke posisi manis (>70%)." }
             </div>
             """, unsafe_allow_html=True)
 
