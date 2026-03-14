@@ -116,4 +116,32 @@ if not st.session_state.db_transaksi.empty:
         buat_tabel_biru(df_b, f"Laporan Bulanan ({b_pilih})")
 
     with tab_kur:
-        # Kalk
+        # Kalkulasi KUR berdasarkan TOTAL DATA
+        total_laba_all = st.session_state.db_transaksi['Laba'].sum()
+        jumlah_bulan = len(st.session_state.db_transaksi['Bulan'].unique())
+        avg_laba_bulanan = total_laba_all / jumlah_bulan
+        
+        cicilan_aman = avg_laba_bulanan * 0.35
+        plafon = cicilan_aman / ((1/12) + 0.005)
+        
+        st.markdown(f"""
+        <div class="kur-card">
+            <h2 style='color: #ffab00;'>Penilaian Kelayakan KUR BRI</h2>
+            <p>Berdasarkan akumulasi laporan keuangan harian hingga bulanan:</p>
+            <hr>
+            <table style='width:100%; color: white;'>
+                <tr><td>Modal Awal Anda:</td><td style='text-align:right'>{format_rp(st.session_state.modal_awal)}</td></tr>
+                <tr><td>Rata-rata Laba Bulanan:</td><td style='text-align:right'>{format_rp(avg_laba_bulanan)}</td></tr>
+                <tr><td>Kemampuan Cicil (35% Laba):</td><td style='text-align:right'>{format_rp(cicilan_aman)} / bln</td></tr>
+                <tr><td colspan='2'><br></td></tr>
+                <tr style='font-size: 24px; font-weight: bold;'>
+                    <td>ESTIMASI PLAFON KUR:</td><td style='text-align:right; color: #ffab00;'>{format_rp(plafon)}</td>
+                </tr>
+            </table>
+            <p><br>Suku Bunga: 6% per Tahun | Status: <b>PROSPEK TINGGI</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.download_button("📥 Download Laporan SAK-EMKM", st.session_state.db_transaksi.to_csv().encode('utf-8'), "laporan_lengkap.csv")
+
+else:
+    st.warning("Silakan masukkan data transaksi untuk mengaktifkan fitur Laporan & Analisis KUR.")
