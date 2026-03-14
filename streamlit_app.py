@@ -49,6 +49,7 @@ def clean_val(teks):
     return int("".join(filter(str.isdigit, str(teks)))) if teks else 0
 
 # 4. SIDEBAR: PROFIL & MODAL
+# 4. SIDEBAR: PROFIL & MODAL
 with st.sidebar:
     st.markdown("<h1 style='text-align:center; color:#FFD700;'>FIN-Saku</h1>", unsafe_allow_html=True)
     st.write("---")
@@ -57,6 +58,8 @@ with st.sidebar:
     jenis_b = st.selectbox("Jenis Bisnis", ["Kuliner", "Retail/Toko", "Jasa", "Manufaktur"])
     m_awal_input = st.number_input("Modal Awal (Uang Kas)", value=7000000)
     
+    # Ambil data terbaru dari database untuk hitung kas live
+    df_all = pd.read_sql_query("SELECT * FROM transaksi", conn)
     untung_kumulatif = (df_all['laba'].sum() - df_all['prive'].sum()) if not df_all.empty else 0
     kas_realtime = m_awal_input + untung_kumulatif
     
@@ -72,40 +75,42 @@ with st.sidebar:
     hpp = st.number_input("Harga Pokok (HPP)", value=5000)
     jual = st.number_input("Harga Jual ke Pelanggan", value=15000)
     
-    # --- BAGIAN INTERAKTIF MARGIN ---
+    # --- LOGIKA INTERAKTIF MARGIN ---
     margin_pct = ((jual - hpp) / jual * 100) if jual > 0 else 0
     saran_m = {"Kuliner": 40, "Retail/Toko": 15, "Jasa": 60, "Manufaktur": 30}
     target = saran_m[jenis_b]
-
-    # Efek Visual Interaktif: Warna berubah tergantung kesehatan margin
-    color_margin = "green" if margin_pct >= target else "orange" if margin_pct > 0 else "red"
     
-    st.markdown(f"**Margin Saat Ini:** <span style='color:{color_margin}; font-size:20px; font-weight:bold;'>{margin_pct:.1f}%</span>", unsafe_allow_html=True)
+    # Indikator warna dinamis
+    warna_teks = "#00FF00" if margin_pct >= target else "#FF4B4B"
     
-    # Progress bar interaktif
-    progress_val = min(max(margin_pct / 100, 0.0), 1.0)
-    st.progress(progress_val)
+    st.markdown(f"""
+        <div style='text-align:center; padding:10px; border-radius:5px; background:rgba(255,255,255,0.1);'>
+            <small>Margin Keuntungan:</small><br>
+            <strong style='font-size:24px; color:{warna_teks};'>{margin_pct:.1f}%</strong>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Progress bar visual
+    prog_val = min(max(margin_pct / 100, 0.0), 1.0)
+    st.progress(prog_val)
     
     if margin_pct < target:
-        st.warning(f"⚠️ **Margin Tipis!** Standar {jenis_b} adalah {target}%. Anda kurang {(target - margin_pct):.1f}% lagi.")
+        st.warning(f"💡 Tips: Untuk {jenis_b}, margin ideal ±{target}%. Milik Anda {margin_pct:.0f}% (Terlalu Tipis).")
     else:
-        st.success(f"✅ **Margin Sehat!** Sudah di atas standar {jenis_b} ({target}%).")
-    # --------------------------------
-
+        st.success(f"✅ Margin Sehat untuk sektor {jenis_b}!")
+    
     st.write("---")
     st.subheader("🏦 Alokasi Gaji Pemilik")
     prive_pct = st.slider("Ambilan Prive/Gaji (%)", 0, 100, 20)
     
-    # Efek Visual Interaktif: Menampilkan nominal rupiah yang akan diambil secara live
-    estimasi_laba_per_unit = jual - hpp
-    nominal_prive = estimasi_laba_per_unit * (prive_pct/100)
-    
-    st.caption(f"Jika untung {format_rp(estimasi_laba_per_unit)}, Anda mengambil {format_rp(nominal_prive)} per unit.")
+    # Efek interaktif: Hitung nominal rupiah dari gaji secara live
+    nominal_gaji = (jual - hpp) * (prive_pct/100)
+    st.info(f"Setiap 1 produk terjual, Bapak/Ibu mengambil **{format_rp(nominal_gaji)}** sebagai gaji.")
 
     if prive_pct > 30:
-        st.error("🚩 Perhatian: Ambilan > 30% berisiko menghambat pertumbuhan modal.")
+        st.error("🚩 Boros: Ambilan di atas 30% bisa menghambat pertumbuhan modal usaha.")
     else:
-        st.success("✅ Alokasi sehat untuk memperkuat modal.")
+        st.success("✅ Alokasi aman.")
 
 # 5. DASHBOARD: PENCATATAN
 st.title(f"🚀 Dashboard Strategis: {nama_u}")
