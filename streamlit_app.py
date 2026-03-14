@@ -205,96 +205,44 @@ if not df_all.empty:
                 mime="application/pdf"
             )
 
-    with tab2:
-            st.subheader("🏦 Konsultasi Strategis KUR")
-            
-            # 1. LOGIKA DASAR (Mengambil data dari variabel yang sudah ada di codinganmu)
-            jml_bln = df_all['bulan'].nunique()
-            
-            if jml_bln < 3:
-                st.error(f"### 🚩 ANALISIS TERKUNCI (Data baru {jml_bln}/3 Bulan)")
-                st.info("Sistem membutuhkan minimal 3 bulan data transaksi untuk menganalisis tren usaha agar rekomendasi bank akurat.")
-            else:
-                # Hitung rata-rata laba bersih (Laba - Prive)
-                avg_laba = (df_all['laba'].sum() - df_all['prive'].sum()) / jml_bln
-                
-                # Cek Tren Laba (Bulan terakhir vs rata-rata)
-                laba_bulan_ini = df_curr['laba'].sum() - df_curr['prive'].sum()
-                tren_status = "Meningkat 📈" if laba_bulan_ini > avg_laba else "Menurun/Stabil 📉"
-                
-                # Penentuan Produk & Plafon (Logika Bank)
-                if avg_laba > 5000000:
-                    produk, plafon_rek = "KUR Mikro BRI", 50000000
-                    alasan_produk = "Laba bersih Anda sangat kuat untuk menjamin plafon hingga 50 Juta."
-                else:
-                    produk, plafon_rek = "KUR Super Mikro BRI", 10000000
-                    alasan_produk = "Plafon ini paling aman untuk menjaga arus kas Anda tetap sehat."
-               
-                # 2. NARASI PEMBUKA
-                st.markdown(f"""
-                <div class="white-card">
-                    <h3 style="margin-top:0;">💡 Hasil Analisis FinSaku untuk {nama_u}</h3>
-                    <p>
-                        Berdasarkan catatan <b>{jml_bln} bulan terakhir</b>, usaha Anda berada pada tren <b>{tren_status}</b>. 
-                        Dengan saldo kas saat ini sebesar <b>{format_rp(kas_realtime)}</b>, berikut adalah simulasi paling aman yang disarankan oleh sistem kami:
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-                    
-                # 3. SLIDER JANGKA WAKTU
-                tenor = st.select_slider("Geser untuk Pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36], value=12)
-                
-                # Hitung Bunga & Pokok (KUR 6% per tahun)
-                pokok_bln = plafon_rek / tenor
-                bunga_bln = (plafon_rek * 0.06) / 12
-                total_cicilan = pokok_bln + bunga_bln
-                
-                # Batas aman (35% dari laba rata-rata)
-                batas_aman = avg_laba * 0.35
-                sisa_laba_akhir = avg_laba - total_cicilan
-                rasio_sisa = (sisa_laba_akhir / avg_laba) * 100
-    
-                # 4. KARTU INDIKATOR (3 KOLOM SEJAJAR)
-                col_a, col_b, col_c = st.columns(3)
-                with col_a:
-                    st.markdown(f"""<div class="report-card"><b>1. Rekomendasi</b><br><small>{produk}</small><br>
-                    <b style="color:#002147; font-size:18px;">{format_rp(plafon_rek)}</b></div>""", unsafe_allow_html=True)
-                with col_b:
-                    warna_c = 'green' if total_cicilan <= batas_aman else 'red'
-                    st.markdown(f"""<div class="report-card"><b>2. Cicilan/Bulan</b><br><small>Batas Aman: {format_rp(batas_aman)}</small><br>
-                    <b style="color:{warna_c}; font-size:18px;">{format_rp(total_cicilan)}</b></div>""", unsafe_allow_html=True)
-                with col_c:
-                    warna_s = 'green' if rasio_sisa >= 70 else 'orange'
-                    st.markdown(f"""<div class="report-card"><b>3. Sisa Laba</b><br><small>Kesehatan Kas</small><br>
-                    <b style="color:{warna_s}; font-size:18px;">{rasio_sisa:.0f}%</b></div>""", unsafe_allow_html=True)
-    
-                # 5. PENJELASAN DETAIL
-                with st.expander("📖 LIHAT BEDAH ANGKA (Penjelasan Sederhana)", expanded=True):
-                    st.write(f"""
-                    * **Plafon {format_rp(plafon_rek)}**: {alasan_produk}
-                    * **Rincian Cicilan**: Terdiri dari Pokok {format_rp(pokok_bln)} ditambah bunga subsidi bank sebesar {format_rp(bunga_bln)} per bulan.
-                    * **Batas Aman**: Kami menghitung bahwa cicilan tidak boleh lebih dari 35% laba Anda agar usaha tidak 'sesak napas'.
-                    * **Sisa Laba {rasio_sisa:.0f}%**: Ini adalah uang bersih yang tetap bisa Anda tabung atau putar kembali ke modal setelah membayar bank.
+# 7. BERKAS UNTUK DIBAWA (Edukasi Lengkap)
+            st.write("---")
+            st.markdown("### 📋 Persiapan Dokumen (Lolos Verifikasi Bank)")
+            st.write("Jangan cuma bawa badan! Bank butuh bukti hitam di atas putih untuk percaya pada Anda.")
+
+            # Menggunakan Expander agar rapi tapi detail
+            with st.expander("1. 🪪 Identitas Diri (KTP & KK)", expanded=False):
+                col_i1, col_i2 = st.columns([1, 2])
+                with col_i1:
+                    st.info("**Tujuan:** Memastikan Anda warga asli & punya domisili tetap.")
+                with col_i2:
+                    st.write("""
+                    * **Kenapa Perlu?** Bank harus lapor ke sistem OJK (SLIK) menggunakan NIK Anda untuk cek riwayat kredit (pernah nunggak atau tidak).
+                    * **Cara Dapet:** Pastikan KTP sudah elektronik (E-KTP) dan data di KK sudah update di Dukcapil.
                     """)
-    
-                # 6. KESIMPULAN & SARAN STRATEGIS
-                st.write("---")
-                if rasio_sisa >= 70:
-                    st.success(f"**KESIMPULAN:** Usaha Anda **SANGAT LAYAK**. Dengan sisa laba {rasio_sisa:.0f}%, Anda masih punya cadangan kas yang sangat aman untuk kebutuhan darurat.")
-                elif rasio_sisa >= 50:
-                    st.warning(f"**KESIMPULAN:** Usaha Anda **LAYAK DENGAN CATATAN**. Cicilan ini cukup terasa. Disarankan mengambil tenor lebih panjang agar sisa laba bisa di atas 70%.")
-                else:
-                    st.error("**KESIMPULAN:** **BERISIKO**. Cicilan ini memakan terlalu banyak laba Anda. Bank BRI mungkin akan menyarankan plafon yang lebih kecil atau tenor yang lebih lama.")
-                
-                # 7. BERKAS UNTUK DIBAWA (Dibuat dalam bentuk kartu juga agar seragam)
-                st.write("📋 **BERKAS UNTUK DIBAWA KE BRI:**")
-                exp1, exp2, exp3 = st.columns(3)
-                with exp1:
-                    st.markdown("""<div class="report-card"><b>Identitas</b><br><small>KTP & Kartu Keluarga asli untuk verifikasi domisili.</small></div>""", unsafe_allow_html=True)
-                with exp2:
-                    st.markdown("""<div class="report-card"><b>Legalitas</b><br><small>NIB (oss.go.id) atau SKU dari Kelurahan setempat.</small></div>""", unsafe_allow_html=True)
-                with exp3:
-                    st.markdown("""<div class="report-card"><b>Keuangan</b><br><small>Hasil cetak PDF Laporan Keuangan dari aplikasi FIN-Saku ini.</small></div>""", unsafe_allow_html=True)
+
+            with st.expander("2. 📜 Legalitas Usaha (NIB / SKU)", expanded=False):
+                col_l1, col_l2 = st.columns([1, 2])
+                with col_l1:
+                    st.info("**Tujuan:** Membuktikan usaha Anda 'Legal' dan bukan usaha fiktif.")
+                with col_l2:
+                    st.write("""
+                    * **Kenapa Perlu?** Syarat wajib KUR adalah usaha sudah berjalan minimal 6 bulan. Dokumen ini adalah "Akte Kelahiran" bisnis Anda.
+                    * **Cara Dapet:** 1. **NIB:** Daftar mandiri di situs **oss.go.id** (Gratis & cuma 10 menit).
+                        2. **SKU:** Minta ke Kantor Kelurahan/Desa dengan membawa pengantar RT/RW.
+                    """)
+
+            with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)", expanded=True):
+                col_k1, col_k2 = st.columns([1, 2])
+                with col_k1:
+                    st.info("**Tujuan:** Menyakinkan Bank bahwa Anda mampu membayar cicilan.")
+                with col_k2:
+                    st.write("""
+                    * **Kenapa Perlu?** Bank tidak mau nebak-nebak. Dengan laporan rapi dari aplikasi ini, Bank melihat Anda sebagai 'Pengusaha Profesional' yang mengerti keuangan.
+                    * **Cara Dapet:** Klik tombol **'DOWNLOAD LAPORAN PDF'** di Tab Laporan Keuangan, lalu cetak (print) di kertas A4.
+                    """)
+
+            st.success("💡 **TIPS DARI KONSULTAN:** Bawa dokumen asli dan fotokopi sebanyak 2 rangkap saat ke Mantri BRI (Petugas KUR).")
 
     with tab3:
         st.dataframe(df_all[['id', 'tgl_data', 'omzet', 'laba']])
