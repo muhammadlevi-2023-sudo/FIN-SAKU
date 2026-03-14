@@ -1,151 +1,114 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import base64
 
 # 1. Konfigurasi Halaman
-st.set_page_config(page_title="FIN-Saku Pro Bank", layout="wide")
+st.set_page_config(page_title="FIN-Saku: Pemisahan Dana", layout="wide")
 
-# Inisialisasi Database Sesi
 if 'transaksi' not in st.session_state:
     st.session_state.transaksi = []
 if 'modal_awal' not in st.session_state:
     st.session_state.modal_awal = 0.0
 
-# Fungsi Suara Uang (Simulasi via HTML)
-def play_sound():
-    sound_file = "https://www.soundjay.com/misc/sounds/coins-spilled-1.mp3"
-    html_str = f"""
-        <audio autoplay>
-            <source src="{sound_file}" type="audio/mp3">
-        </audio>
-    """
-    st.components.v1.html(html_str, height=0)
+# --- FUNGSI PENDUKUNG ---
+def play_cash_sound():
+    sound_url = "https://www.soundjay.com/misc/sounds/coins-spilled-1.mp3"
+    st.components.v1.html(f'<audio autoplay><source src="{sound_url}" type="audio/mp3"></audio>', height=0)
 
-# 2. Styling BRI & Inklusi
+def format_rupiah(angka):
+    return f"Rp {angka:,.0f}".replace(",", ".")
+
+# 2. CSS Custom (Warna Laporan Sesuai Gambar Referensi)
 st.markdown("""
     <style>
-    .main-title { font-size: 30px; font-weight: bold; color: #00529b; text-align: center; }
-    .card { padding: 15px; border-radius: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; margin-bottom: 10px; }
-    .stNumberInput input { font-size: 20px !important; }
+    .laporan-biru { background-color: #d1d9ff; padding: 25px; border-radius: 10px; color: #1a1a1a; }
+    .header-lap { text-align: center; font-weight: bold; font-size: 20px; margin-bottom: 15px; }
+    .tabel-lap { width: 100%; border-collapse: collapse; }
+    .tabel-lap td { padding: 10px; border-bottom: 1px solid #99aaff; }
+    .total-row { background-color: #b3c1ff; font-weight: bold; }
+    .dompet-box { padding: 15px; border-radius: 10px; text-align: center; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">🏦 FIN-Saku: Laporan Keuangan Standar Bank</div>', unsafe_allow_html=True)
-
-# --- SIDEBAR: SETTING AWAL (PENTING UNTUK NERACA) ---
+# --- SIDEBAR ---
 with st.sidebar:
-    st.header("⚙️ Pengaturan Awal Usaha")
-    st.info("Isi data ini sekali saja saat memulai usaha.")
-    st.session_state.modal_awal = st.number_input("💰 Modal Awal (Uang di Kas/Bank)", min_value=0, step=100000)
+    st.header("⚙️ Pengaturan Dasar")
+    nama_usaha = st.text_input("Nama Usaha", "PT. Enggan Mundur")
+    st.session_state.modal_awal = st.number_input("Modal Awal (Uang di Kas)", min_value=0, step=50000)
     
     st.write("---")
-    st.subheader("📦 Analisis Produk")
-    hpp = st.number_input("Biaya Modal per Produk (HPP)", min_value=0, step=500)
-    harga_jual = st.number_input("Harga Jual ke Pelanggan", min_value=0, step=500)
-    
-    if harga_jual > 0:
-        margin = harga_jual - hpp
-        st.metric("Keuntungan per Produk", f"Rp {margin:,.0f}")
+    st.subheader("💰 Parameter Keuntungan")
+    hpp = st.number_input("HPP per Unit", min_value=0, step=500)
+    harga_jual = st.number_input("Harga Jual per Unit", min_value=0, step=500)
+    porsi_pribadi_persen = st.slider("Jatah Uang Pribadi (%)", 10, 50, 30)
 
-# --- HALAMAN UTAMA: INPUT TRANSAKSI ---
-col1, col2 = st.columns([1, 1])
+# --- INPUT TRANSAKSI ---
+st.title(f"🏦 {nama_usaha}")
+col_in, col_hist = st.columns([1, 1])
 
-with col1:
-    st.subheader("🎙️ Catat Penjualan")
-    st.caption("Klik mikrofon keyboard HP untuk input suara.")
-    jml_unit = st.number_input("Berapa banyak yang laku?", min_value=0, step=1)
-    
-    if st.button("🔔 SIMPAN TRANSAKSI"):
-        if jml_unit > 0 and harga_jual > 0:
-            total_sales = jml_unit * harga_jual
-            total_hpp = jml_unit * hpp
-            laba = total_sales - total_hpp
+with col_in:
+    st.subheader("🎙️ Catat Penjualan Hari Ini")
+    jml = st.number_input("Jumlah terjual:", min_value=0, step=1)
+    if st.button("🔔 SIMPAN & PISAHKAN SALDO"):
+        if jml > 0 and harga_jual > 0:
+            omzet = jml * harga_jual
+            total_hpp = jml * hpp
+            laba = omzet - total_hpp
+            # Logika Pemisahan
+            untuk_pribadi = laba * (porsi_pribadi_persen / 100)
+            untuk_usaha = omzet - untuk_pribadi
             
             st.session_state.transaksi.append({
-                "Tanggal": datetime.now().strftime("%d/%m/%Y"),
-                "Omzet": total_sales,
-                "HPP": total_hpp,
-                "Laba": laba
+                "Waktu": datetime.now().strftime("%H:%M"),
+                "Omzet": omzet,
+                "Laba": laba,
+                "Pribadi": untuk_pribadi,
+                "Usaha": untuk_usaha
             })
-            play_sound() # Memicu suara uang
-            st.success(f"Berhasil! Uang masuk Rp {total_sales:,.0f}")
+            play_cash_sound()
+            st.success(f"Saldo terpisah! Jatah pribadi: {format_rupiah(untuk_pribadi)}")
         else:
-            st.error("Isi data produk di samping dulu!")
+            st.warning("Lengkapi data harga di samping!")
 
-with col2:
-    st.subheader("📝 Catatan Hari Ini")
+with col_hist:
+    st.subheader("📋 Jurnal Kas Terkini")
     if st.session_state.transaksi:
         df = pd.DataFrame(st.session_state.transaksi)
-        st.dataframe(df.style.format({"Omzet": "{:,.0f}", "Laba": "{:,.0f}"}))
-        if st.button("Hapus Riwayat"):
-            st.session_state.transaksi = []
-            st.rerun()
+        st.dataframe(df.style.format("{:,.0f}"))
 
-# --- BAGIAN OUTUPUT: LAPORAN KEUANGAN 4 PILAR ---
+# --- LAPORAN PEMISAHAN DANA ---
 if st.session_state.transaksi:
     st.write("---")
-    st.header("📑 Laporan Keuangan SAK-EMKM")
+    st.header("📊 Laporan Realisasi Pemisahan Dana")
     
-    # Hitung Variabel Utama
-    total_sales = sum(t['Omzet'] for t in st.session_state.transaksi)
-    total_hpp = sum(t['HPP'] for t in st.session_state.transaksi)
-    total_laba = total_sales - total_hpp
-    porsi_pribadi = total_laba * 0.3 # 30% untuk pribadi
-    laba_ditahan = total_laba - porsi_pribadi
-    kas_akhir = st.session_state.modal_awal + total_sales - porsi_pribadi
+    total_omzet = sum(t['Omzet'] for t in st.session_state.transaksi)
+    total_laba = sum(t['Laba'] for t in st.session_state.transaksi)
+    total_prive = sum(t['Pribadi'] for t in st.session_state.transaksi)
+    total_masuk_usaha = sum(t['Usaha'] for t in st.session_state.transaksi)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📉 Laba Rugi", "⚖️ Neraca", "🔄 Arus Kas", "📈 Perubahan Modal"])
+    # VISUAL PEMISAHAN (DOMPET)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(f"""<div class="dompet-box" style="background-color: #00529b;">
+        <h3>💼 UNTUK USAHA</h3><h2>{format_rupiah(total_masuk_usaha + st.session_state.modal_awal)}</h2>
+        <small>(Modal Awal + Putaran Modal)</small></div>""", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"""<div class="dompet-box" style="background-color: #28a745;">
+        <h3>🙋 UNTUK SENDIRI</h3><h2>{format_rupiah(total_prive)}</h2>
+        <small>(Gaji Owner / Jatah Jajan)</small></div>""", unsafe_allow_html=True)
 
-    with tab1:
-        st.subheader("Laporan Laba Rugi")
-        st.markdown(f"""
-        <div class='card'>
-        Total Pendapatan: **Rp {total_sales:,.0f}**<br>
-        Total Beban (HPP): **(Rp {total_hpp:,.0f})**<hr>
-        <b>LABA BERSIH: Rp {total_laba:,.0f}</b>
-        </div>
-        """, unsafe_allow_html=True)
+    # LAPORAN FORMAT AKUNTANSI (WARNA BIRU)
+    st.write(" ")
+    st.markdown(f"""
+    <div class="laporan-biru">
+        <div class="header-lap">{nama_usaha}<br>Laporan Perubahan Modal & Prive</div>
+        <table class="tabel-lap">
+            <tr><td>Pendapatan Usaha (Omzet)</td><td style="text-align:right">{format_rupiah(total_omzet)}</td></tr>
+            <tr><td>Total Laba Bersih</td><td style="text-align:right">{format_rupiah(total_laba)}</td></tr>
+            <tr style="color: red;"><td><b>Pengambilan Pribadi (Prive {porsi_pribadi_persen}%)</b></td><td style="text-align:right"><b>({format_rupiah(total_prive)})</b></td></tr>
+            <tr class="total-row"><td><b>TAMBAHAN MODAL USAHA</b></td><td style="text-align:right"><b>{format_rupiah(total_laba - total_prive)}</b></td></tr>
+        </table>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with tab2:
-        st.subheader("Laporan Posisi Keuangan (Neraca)")
-        st.markdown(f"""
-        <div class='card'>
-        <b>ASET (Harta):</b><br>
-        Kas di Tangan: Rp {kas_akhir:,.0f}<br><hr>
-        <b>KEWAJIBAN & MODAL:</b><br>
-        Utang: Rp 0<br>
-        Modal Akhir: Rp {st.session_state.modal_awal + laba_ditahan:,.0f}<br><hr>
-        <i>Status: <b>BALANCE ✅</b></i>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with tab3:
-        st.subheader("Laporan Arus Kas")
-        st.write("Menunjukkan aliran uang masuk dan keluar secara nyata.")
-        st.markdown(f"""
-        <div class='card'>
-        Saldo Awal Kas: Rp {st.session_state.modal_awal:,.0f}<br>
-        Penerimaan Pelanggan: + Rp {total_sales:,.0f}<br>
-        Pengambilan Pribadi (Prive): - Rp {porsi_pribadi:,.0f}<br><hr>
-        <b>SALDO AKHIR KAS: Rp {kas_akhir:,.0f}</b>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with tab4:
-        st.subheader("Laporan Perubahan Ekuitas")
-        st.markdown(f"""
-        <div class='card'>
-        Modal Awal: Rp {st.session_state.modal_awal:,.0f}<br>
-        Laba Bersih: + Rp {total_laba:,.0f}<br>
-        Pengambilan Pribadi: - Rp {porsi_pribadi:,.0f}<br><hr>
-        <b>MODAL AKHIR: Rp {st.session_state.modal_awal + laba_ditahan:,.0f}</b>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # --- REKOMENDASI BANK ---
-    st.write("---")
-    st.subheader("🏦 Rekomendasi Mantri BRI")
-    cicilan_aman = total_laba * 0.3
-    st.success(f"Berdasarkan Laba Rugi, Anda aman mencicil maksimal **Rp {cicilan_aman:,.0f}/bulan**.")
-    st.download_button("📥 Download Laporan Lengkap (CSV)", df.to_csv().encode('utf-8'), "laporan_bank.csv")
+    st.info("💡 **Tips Bank:** Dengan memisahkan jatah pribadi secara disiplin, skor kredit Anda di BRI akan meningkat karena modal usaha Anda aman.")
