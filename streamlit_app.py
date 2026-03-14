@@ -166,103 +166,87 @@ if not df.empty:
                     </tr>
                 </table></div>""", unsafe_allow_html=True)
 
-    with tab_kur:
+with tab_kur:
         st.subheader("🏦 Konsultasi Strategis KUR (Analisis Mantri)")
         
-        # --- LOGIKA ANALISIS MANTRI (DEEP ANALYSIS) ---
         st.write(f"Histori Laporan: **{jumlah_bulan_data} Bulan**")
         
-        # Hitung Tren Laba (Jika data > 1 bulan)
-        if jumlah_bulan_data > 1:
-            laba_rata_rata = df['laba'].mean()
-            laba_terakhir = df.iloc[-1]['laba']
-            tren_laba = "Naik 📈" if laba_terakhir > laba_rata_rata else "Turun 📉"
-        else:
-            laba_rata_rata = laba_bln
-            tren_laba = "Stabil (Data Baru)"
-
-        # 1. VALIDASI DURASI (SYARAT UTAMA BANK)
         if jumlah_bulan_data < 3:
             st.error(f"### 🚩 STATUS: BELUM LAYAK (DATA KURANG)")
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown(f"""<div class="white-card" style="border-left: 8px solid red;">
-                    <h4>Kenapa Ditolak?</h4>
-                    <p>Bank tidak bisa melihat <b>pola konsistensi</b> usaha Anda. Kredit tanpa histori laporan yang cukup dianggap spekulasi.</p>
-                    <hr><b>Tugas Anda:</b> Lengkapi minimal {3-jumlah_bulan_data} bulan laporan lagi.</div>""", unsafe_allow_html=True)
-            with col_b:
-                st.markdown(f"""<div class="white-card">
-                    <h4>Target Sebelum Pinjam:</h4>
-                    <ul>
-                        <li>Rapikan catatan Harian</li>
-                        <li>Pastikan Omzet stabil/naik</li>
-                        <li>Siapkan Dokumen NIB & SKU</li>
-                    </ul></div>""", unsafe_allow_html=True)
-
-        # 2. VALIDASI KESEHATAN (LABA & MARGIN)
+            st.markdown(f"""<div class="white-card" style="border-left: 8px solid red;">
+                <h4>Kenapa Belum Bisa Pinjam?</h4>
+                <p>Bank BRI butuh melihat konsistensi. Ibarat kenalan, Bank belum 'kenal' dalam dengan bisnis Anda. 
+                Lengkapi catatan <b>{3-jumlah_bulan_data} bulan</b> lagi agar Bank percaya bahwa laba Anda bukan kebetulan.</p>
+                </div>""", unsafe_allow_html=True)
+        
         elif laba_bln < 1500000:
             st.warning("### ⚠️ STATUS: PERBAIKI PERFORMANCE")
             st.markdown(f"""<div class="white-card" style="border-left: 8px solid orange;">
                 <h4>Analisis Konsultan:</h4>
-                <p>Laba Anda <b>{format_rp(laba_bln)}</b> dengan tren <b>{tren_laba}</b>.</p>
-                <p>Untuk pinjaman KUR terkecil pun, laba di bawah 1.5 Juta akan membuat hidup Anda susah karena sisa uang setelah cicilan terlalu sedikit.</p>
-                <hr><b>Saran:</b> Naikkan Omzet 20% lagi bulan depan sebelum tanda tangan kontrak bank.</div>""", unsafe_allow_html=True)
-
-        # 3. KONDISI LAYAK (STRATEGI EKSPANSI)
+                <p>Laba Anda {format_rp(laba_bln)} masih terlalu mepet untuk membayar cicilan bank. 
+                Saran: Fokus naikkan penjualan dulu bulan depan agar saat pinjam, Anda tidak pusing bayar cicilannya.</p>
+                </div>""", unsafe_allow_html=True)
+        
         else:
             st.success("### ✅ STATUS: SANGAT LAYAK (READY TO BANK)")
             
-            # Perhitungan DSR (Debt Service Ratio) - Standar Bank 30%
-            max_cicilan_aman = laba_bln * 0.30
-            
-            # Penentuan Plafon Berdasarkan Kas & Laba
-            if modal_akhir_bln > 15000000 and laba_bln > 5000000:
-                plafon = 50000000
-                produk = "KUR Mikro BRI"
-            else:
-                plafon = 10000000
-                produk = "KUR Super Mikro BRI"
+            # Perhitungan Logika Bank
+            max_cicilan_aman = laba_bln * 0.35 # 35% dari laba
+            plafon = 50000000 if modal_akhir_bln > 15000000 else 10000000
+            produk = "KUR Mikro BRI" if plafon > 10000000 else "KUR Super Mikro BRI"
 
             st.markdown(f"""<div class="white-card">
-                <h4>Rekomendasi Plafon & Produk:</h4>
+                <h4>Rekomendasi Pinjaman:</h4>
                 <h2 style="color:#001f3f;">{produk}: {format_rp(plafon)}</h2>
-                <p>Tren Laba Anda: <b>{tren_laba}</b> | Batas Cicilan Aman: <b>{format_rp(max_cicilan_aman)}/bln</b></p>
+                <p>Batas Cicilan Aman menurut sistem: <b style="color:green;">{format_rp(max_cicilan_aman)}/bln</b></p>
             </div>""", unsafe_allow_html=True)
 
-            # SIMULASI CICILAN & SAFETY ZONE
-            tenor = st.select_slider("Pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36])
-            bunga_bln = (plafon * 0.06) / 12
-            pokok_bln = plafon / tenor
-            total_cicilan = pokok_bln + bunga_bln
+            tenor = st.select_slider("Geser untuk pilih Jangka Waktu (Bulan):", options=[12, 18, 24, 36])
             
+            # Hitung Cicilan
+            total_cicilan = (plafon / tenor) + ((plafon * 0.06) / 12)
             sisa_laba = laba_bln - total_cicilan
             persen_sisa = (sisa_laba / laba_bln) * 100
 
+            # UI DASHBOARD ANGKA
             c1, c2 = st.columns(2)
             with c1:
-                warna_sisa = "green" if total_cicilan <= max_cicilan_aman else "red"
                 st.markdown(f"""<div class="white-card">
-                    <h4>Rincian Kewajiban:</h4>
-                    <p>Cicilan Per Bulan: <b>{format_rp(total_cicilan)}</b></p>
-                    <p>Sisa Laba Bersih: <b style="color:{warna_sisa};">{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</b></p>
-                    <hr><small>*Bank menyukai sisa laba > 70% setelah cicilan.</small>
+                    <p style="margin:0;">Cicilan Per Bulan:</p>
+                    <h3 style="margin:0; color:#001f3f;">{format_rp(total_cicilan)}</h3>
+                    <p style="margin:0; font-size:12px;">Tenor {tenor} Bulan</p>
                 </div>""", unsafe_allow_html=True)
-            
             with c2:
-                st.markdown(f"""<div class="white-card" style="border-left: 8px solid #FFD700;">
-                    <h4>💡 Strategi Modal:</h4>
-                    <p>Jika Dana Cair, target Omzet Anda harus naik menjadi:</p>
-                    <h4 style="color:green;">{format_rp(omzet_bln * 1.5)}/bln</h4>
-                    <p><small>Agar rasio utang Anda tetap sehat (Leverage Analysis).</small></p>
+                warna_sisa = "green" if persen_sisa >= 70 else "orange"
+                st.markdown(f"""<div class="white-card">
+                    <p style="margin:0;">Sisa Laba Bersih:</p>
+                    <h3 style="margin:0; color:{warna_sisa};">{format_rp(sisa_laba)} ({persen_sisa:.0f}%)</h3>
+                    <p style="margin:0; font-size:12px;">Setelah bayar cicilan</p>
                 </div>""", unsafe_allow_html=True)
 
-            # CHECKLIST DOKUMEN (INTERAKTIF)
+            # --- BAGIAN NARASI PENJELASAN (HUMAN FRIENDLY) ---
             st.write("---")
-            st.subheader("📂 Checklist Dokumen ke Bank")
-            st.checkbox("KTP Pemilik & Pasangan")
-            st.checkbox("NIB (Nomor Induk Berusaha)")
-            st.checkbox("Surat Keterangan Usaha (SKU) dari Desa/Kelurahan")
-            st.checkbox(f"Print Laporan FIN-Saku Bulan {sel_b} (Sangat disarankan)")
+            st.subheader("📝 Penjelasan Hasil Analisis Anda")
+            
+            if persen_sisa < 70:
+                st.markdown(f"""
+                <div style="background-color: #fff3cd; padding: 20px; border-radius: 10px; color: #856404; border: 1px solid #ffeeba;">
+                    <b>Kesimpulan & Saran:</b><br>
+                    Meskipun status Anda "Sangat Layak", simulasi {tenor} bulan ini terlihat agak <b>"memaksa"</b> keuangan Anda. 
+                    Cicilan {format_rp(total_cicilan)} melebihi batas aman yang disarankan ({format_rp(max_cicilan_aman)}).<br><br>
+                    <b>Agar lebih mudah disetujui bank:</b><br>
+                    1. <b>Perpanjang Jangka Waktu:</b> Coba geser slider ke 24 atau 36 bulan. Ini akan menurunkan cicilan bulanan mendekati angka aman.<br>
+                    2. <b>Posisi Manis:</b> Bank sangat menyukai jika sisa laba Anda di atas 70%. Saat ini sisa Anda hanya {persen_sisa:.0f}%.
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background-color: #d4edda; padding: 20px; border-radius: 10px; color: #155724; border: 1px solid #c3e6cb;">
+                    <b>Kesimpulan & Saran:</b><br>
+                    Pilihan tenor {tenor} bulan sudah <b>SANGAT TEPAT</b>. Cicilan Anda berada di bawah batas aman, dan sisa laba Anda ({persen_sisa:.0f}%) berada di "Posisi Manis" mata Bank BRI.<br><br>
+                    Silakan ajukan ke Mantri BRI dengan membawa laporan dari FIN-Saku ini sebagai bukti Anda UMKM yang melek finansial!
+                </div>
+                """, unsafe_allow_html=True)
 
     with tab_rev:
         st.subheader("🛠️ Revisi")
