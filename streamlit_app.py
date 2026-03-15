@@ -414,14 +414,11 @@ with tab3:
                     cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in to_delete['id']])
                     conn.commit()
                     st.rerun()
-            else:
-                st.caption("Ceklis kolom 'Hapus' untuk menghapus data.")
 
-# --- BAGIAN DI BAWAH INI HARUS SEJAJAR DENGAN 'if not df_all.empty:' ---
+# --- PENUTUP UTAMA (SEJAJAR DENGAN 'if not df_all.empty:') ---
 else:
     st.write("---")
     st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
-
 # --- PENUTUP UTAMA (Sejajar dengan 'if not df_all.empty:') ---
 else:
     st.write("---")
