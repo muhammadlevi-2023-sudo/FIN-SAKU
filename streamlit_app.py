@@ -373,30 +373,64 @@ with tab2:
 
             st.success("💡 **TIPS DARI KONSULTAN:** Bawa dokumen asli dan fotokopi sebanyak 2 rangkap saat ke Mantri BRI (Petugas KUR).")
 
-with tab3:
-    st.subheader("⚙️ Kelola Transaksi")
-    st.write("Klik pada kotak centang di sebelah kiri untuk memilih data yang ingin dihapus, lalu tekan tombol 'Hapus Data Pilihan'.")
-    
-    # Tambahkan kolom pilihan untuk hapus
-    df_edit = df_all.copy()
-    df_edit.insert(0, "Pilih", False)
-    
-    edited_df = st.data_editor(
-        df_edit,
-        column_config={"Pilih": st.column_config.CheckboxColumn(required=True)}, # Pastikan ada koma di sini
-        disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "omzet", "laba", "prive", "beban"],
-        hide_index=True, # Dan di sini
-    )
+# ... (ini sambungan dari bagian Tab 2 sebelumnya) ...
 
-    selected_rows = edited_df[edited_df["Pilih"] == True]
-    
-    if not selected_rows.empty:
-        if st.button(f"🗑️ Hapus {len(selected_rows)} Data Terpilih"):
-            ids_to_delete = selected_rows['id'].tolist()
-            cur = conn.cursor()
-            cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in ids_to_delete])
-            conn.commit()
-            st.success("Data berhasil diperbarui!")
+    with tab3:
+        st.subheader("⚙️ Edit & Hapus Transaksi")
+        st.info("Klik langsung pada angka **Omzet** atau **Beban** untuk mengubah, lalu klik Simpan.")
+        
+        # Menyiapkan tabel untuk diedit
+        df_revisi = df_all.copy()
+        df_revisi.insert(0, "Hapus", False) 
+        
+        edited_df = st.data_editor(
+            df_revisi,
+            column_config={
+                "Hapus": st.column_config.CheckboxColumn(),
+                "omzet": st.column_config.NumberColumn("Omzet (Rp)", format="Rp %d"),
+                "beban": st.column_config.NumberColumn("Beban (Rp)", format="Rp %d"),
+            },
+            disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "laba", "prive"],
+            hide_index=True,
+        )
+
+        c_edit1, c_edit2 = st.columns(2)
+        
+        with c_edit1:
+            if st.button("💾 SIMPAN PERUBAHAN ANGKA"):
+                cur = conn.cursor()
+                for index, row in edited_df.iterrows():
+                    n_laba = row['omzet'] * (margin_pct/100) - row['beban']
+                    n_prive = n_laba * (prive_pct/100)
+                    cur.execute("UPDATE transaksi SET omzet=?, beban=?, laba=?, prive=? WHERE id=?", 
+                               (row['omzet'], row['beban'], n_laba, n_prive, row['id']))
+                conn.commit()
+                st.success("✅ Angka berhasil diperbarui!")
+                st.rerun()
+
+        with c_edit2:
+            to_delete = edited_df[edited_df["Hapus"] == True]
+            if not to_delete.empty:
+                if st.button(f"🗑️ HAPUS {len(to_delete)} DATA"):
+                    cur = conn.cursor()
+                    cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in to_delete['id']])
+                    conn.commit()
+                    st.rerun()
+
+    # 7. BERKAS UNTUK DIBAWA (Bagian ini juga harus menjorok ke dalam)
+    st.write("---")
+    st.markdown("### 📋 Persiapan Dokumen (Lolos Verifikasi Bank)")
+    with st.expander("1. 🪪 Identitas Diri (KTP & KK)"):
+        st.write("Wajib untuk cek SLIK OJK.")
+    with st.expander("2. 📜 Legalitas Usaha (NIB / SKU)"):
+        st.write("Buktikan usaha Anda bukan fiktif.")
+    with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)"):
+        st.write("Gunakan PDF yang di-download di Tab 1.")
+
+# TANDA ELSE INI SEJAJAR DENGAN 'if not df_all.empty:'
+else:
+    st.write("---")
+    st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
             st.rerun()
     else:
         st.write("---")
