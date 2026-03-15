@@ -12,8 +12,8 @@ def get_connection():
     conn = sqlite3.connect('finsaku_unair_final_v20.db', check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS transaksi
-                 (id INTEGER PRIMARY KEY, tgl_data TEXT, bulan TEXT, tahun TEXT, 
-                  tipe_input TEXT, omzet REAL, laba REAL, prive REAL)''')
+             (id INTEGER PRIMARY KEY, tgl_data TEXT, bulan TEXT, tahun TEXT, 
+              tipe_input TEXT, omzet REAL, laba REAL, prive REAL, beban REAL)''')
     conn.commit()
     return conn
 
@@ -134,6 +134,8 @@ with st.container():
     with c2:
         omzet_raw = st.text_input(f"Omzet ({tipe_in})")
         omzet_val = clean_val(omzet_raw)
+        beban_raw = st.text_input(f"Beban Operasional ({tipe_in})", value="0")
+        beban_val = clean_val(beban_raw)
         st.markdown(f"Tercatat: <b style='color:#FFD700;'>{format_rp(omzet_val)}</b>", unsafe_allow_html=True)
     with c3:
         st.write("##")
@@ -141,8 +143,8 @@ with st.container():
             l_val = omzet_val * (margin_pct/100)
             p_val = l_val * (prive_pct/100)
             cur = conn.cursor()
-            cur.execute("INSERT INTO transaksi (tgl_data, bulan, tahun, tipe_input, omzet, laba, prive) VALUES (?,?,?,?,?,?,?)",
-                      (tgl_db, sel_bln, sel_thn, tipe_in, omzet_val, l_val, p_val))
+            cur.execute("INSERT INTO transaksi (tgl_data, bulan, tahun, tipe_input, omzet, laba, prive, beban) VALUES (?,?,?,?,?,?,?,?)",
+                        (tgl_db, sel_bln, sel_thn, tipe_in, omzet_val, l_val, p_val, beban_val))
             conn.commit()
             st.rerun()
 
@@ -160,7 +162,8 @@ if not df_all.empty:
         o_sum = df_curr['omzet'].sum()
         # Menghitung HPP berdasarkan input margin di sidebar
         hpp_total = o_sum * (1 - (margin_pct/100))
-        l_operasional = o_sum - hpp_total
+        beban_sum = df_curr['beban'].sum() if 'beban' in df_curr.columns else 0
+        l_operasional = o_sum - hpp_total - beban_sum
         p_sum = df_curr['prive'].sum()
         
         # 3. Hitung Modal (Sesuai Gambar)
@@ -178,6 +181,7 @@ if not df_all.empty:
             <b>I. LAPORAN LABA RUGI</b><br>
             <div style="display:flex; justify-content:space-between;"><span>Total Pendapatan (Omzet)</span><b>{format_rp(o_sum)}</b></div>
             <div style="display:flex; justify-content:space-between;"><span>Beban Pokok Penjualan (HPP)</span><span style="color:red;">-{format_rp(hpp_total)}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Beban Operasional</span><span style="color:red;">-{format_rp(beban_sum)}</span></div>
             <div style="border-top:1px solid #ccc; margin:5px 0;"></div>
             <div style="display:flex; justify-content:space-between;"><b>LABA BERSIH OPERASIONAL</b><b>{format_rp(l_operasional)}</b></div>
             <br>
@@ -213,6 +217,7 @@ if not df_all.empty:
             pdf.set_font("Arial", '', 10)
             pdf.cell(100, 8, "Total Pendapatan (Omzet)", 0, 0); pdf.cell(90, 8, format_rp(o_sum), 0, 1, 'R')
             pdf.cell(100, 8, "Beban Pokok Penjualan (HPP)", 0, 0); pdf.cell(90, 8, f"- {format_rp(hpp_total)}", 0, 1, 'R')
+            pdf.cell(100, 8, "Beban Operasional", 0, 0); pdf.cell(90, 8, f"- {format_rp(beban_sum)}", 0, 1, 'R')
             pdf.line(110, pdf.get_y(), 200, pdf.get_y())
             pdf.set_font("Arial", 'B', 10)
             pdf.cell(100, 10, "LABA BERSIH OPERASIONAL", 0, 0); pdf.cell(90, 10, format_rp(l_operasional), 0, 1, 'R')
@@ -379,7 +384,7 @@ with tab3:
         edited_df = st.data_editor(
             df_edit,
             column_config={"Pilih": st.column_config.CheckboxColumn(required=True)},
-            disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "omzet", "laba", "prive"],
+            disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "omzet", "laba", "prive", "beban"]
             hide_index=True,
         )
 
