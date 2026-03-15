@@ -374,30 +374,30 @@ with tab2:
             st.success("💡 **TIPS DARI KONSULTAN:** Bawa dokumen asli dan fotokopi sebanyak 2 rangkap saat ke Mantri BRI (Petugas KUR).")
 
 with tab3:
-        st.subheader("⚙️ Kelola Transaksi")
-        st.write("Klik pada kotak centang di sebelah kiri untuk memilih data yang ingin dihapus, lalu tekan tombol 'Hapus Data Pilihan'.")
-        
-        # Tambahkan kolom pilihan untuk hapus
-        df_edit = df_all.copy()
-        df_edit.insert(0, "Pilih", False)
-        
-        edited_df = st.data_editor(
-            df_edit,
-            column_config={"Pilih": st.column_config.CheckboxColumn(required=True)},
-            disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "omzet", "laba", "prive", "beban"]
-            hide_index=True,
-        )
+    st.subheader("⚙️ Kelola Transaksi")
+    st.write("Klik pada kotak centang di sebelah kiri untuk memilih data yang ingin dihapus, lalu tekan tombol 'Hapus Data Pilihan'.")
+    
+    # Tambahkan kolom pilihan untuk hapus
+    df_edit = df_all.copy()
+    df_edit.insert(0, "Pilih", False)
+    
+    edited_df = st.data_editor(
+        df_edit,
+        column_config={"Pilih": st.column_config.CheckboxColumn(required=True)}, # Pastikan ada koma di sini
+        disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "omzet", "laba", "prive", "beban"],
+        hide_index=True, # Dan di sini
+    )
 
-        selected_rows = edited_df[edited_df["Pilih"] == True]
-        
-        if not selected_rows.empty:
-            if st.button(f"🗑️ Hapus {len(selected_rows)} Data Terpilih"):
-                ids_to_delete = selected_rows['id'].tolist()
-                cur = conn.cursor()
-                cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in ids_to_delete])
-                conn.commit()
-                st.success("Data berhasil diperbarui!")
-                st.rerun()
-        else:
-            st.write("---")
-            st.caption("Gunakan tabel di atas untuk memantau kembali catatan yang sudah masuk.")
+    selected_rows = edited_df[edited_df["Pilih"] == True]
+    
+    if not selected_rows.empty:
+        if st.button(f"🗑️ Hapus {len(selected_rows)} Data Terpilih"):
+            ids_to_delete = selected_rows['id'].tolist()
+            cur = conn.cursor()
+            cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in ids_to_delete])
+            conn.commit()
+            st.success("Data berhasil diperbarui!")
+            st.rerun()
+    else:
+        st.write("---")
+        st.caption("Gunakan tabel di atas untuk memantau kembali catatan yang sudah masuk.")
