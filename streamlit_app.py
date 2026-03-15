@@ -375,9 +375,9 @@ with tab2:
 
 with tab3:
         st.subheader("⚙️ Edit & Hapus Transaksi")
-        st.info("Klik langsung pada angka **Omzet** atau **Beban** untuk mengubah, lalu klik Simpan.")
+        st.info("Klik angka pada kolom Omzet/Beban untuk mengubah, lalu tekan Simpan.")
         
-        # Menyiapkan tabel untuk diedit
+        # Siapkan data untuk diedit
         df_revisi = df_all.copy()
         df_revisi.insert(0, "Hapus", False) 
         
@@ -395,15 +395,16 @@ with tab3:
         c_edit1, c_edit2 = st.columns(2)
         
         with c_edit1:
-            if st.button("💾 SIMPAN PERUBAHAN ANGKA"):
+            if st.button("💾 SIMPAN PERUBAHAN"):
                 cur = conn.cursor()
                 for index, row in edited_df.iterrows():
+                    # Hitung ulang laba & prive berdasarkan angka baru
                     n_laba = row['omzet'] * (margin_pct/100) - row['beban']
                     n_prive = n_laba * (prive_pct/100)
                     cur.execute("UPDATE transaksi SET omzet=?, beban=?, laba=?, prive=? WHERE id=?", 
                                (row['omzet'], row['beban'], n_laba, n_prive, row['id']))
                 conn.commit()
-                st.success("✅ Angka berhasil diperbarui!")
+                st.success("✅ Berhasil diperbarui!")
                 st.rerun()
 
         with c_edit2:
@@ -415,11 +416,7 @@ with tab3:
                     conn.commit()
                     st.rerun()
 
-# --- PENUTUP UTAMA (SEJAJAR DENGAN 'if not df_all.empty:') ---
+# --- PENUTUP (WAJIB SEJAJAR DENGAN 'if not df_all.empty:') ---
 else:
     st.write("---")
     st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
-# --- PENUTUP UTAMA (Sejajar dengan 'if not df_all.empty:') ---
-else:
-    st.write("---")
-    st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan keuangan Anda.")
