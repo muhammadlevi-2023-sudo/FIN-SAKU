@@ -9,7 +9,7 @@ import io
 st.set_page_config(page_title="FIN-Saku Pro | BRI Bankable Edition", layout="wide")
 
 def get_connection():
-    conn = sqlite3.connect('finsaku_unair_final_v20.db', check_same_thread=False)
+    conn = sqlite3.connect('finsaku_unair_final_v21.db', check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS transaksi
              (id INTEGER PRIMARY KEY, tgl_data TEXT, bulan TEXT, tahun TEXT, 
