@@ -373,7 +373,7 @@ with tab2:
 
             st.success("💡 **TIPS DARI KONSULTAN:** Bawa dokumen asli dan fotokopi sebanyak 2 rangkap saat ke Mantri BRI (Petugas KUR).")
 
-with tab3:
+    with tab3:
         st.subheader("⚙️ Edit & Hapus Transaksi")
         st.info("Klik langsung pada angka **Omzet** atau **Beban** untuk mengubah, lalu klik Simpan.")
         
