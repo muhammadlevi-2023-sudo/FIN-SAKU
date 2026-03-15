@@ -415,7 +415,9 @@ with tab2:
                     conn.commit()
                     st.rerun()
 
-# --- BAGIAN PENUTUP (SEJAJAR DENGAN 'if not df_all.empty:') ---
+else:
+    st.write("---")
+    st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
 else:
     st.write("---")
     st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
