@@ -374,49 +374,48 @@ with tab2:
             st.success("💡 **TIPS DARI KONSULTAN:** Bawa dokumen asli dan fotokopi sebanyak 2 rangkap saat ke Mantri BRI (Petugas KUR).")
 
 with tab3:
-        st.subheader("⚙️ Edit & Hapus Transaksi")
-        st.info("Klik angka pada kolom Omzet/Beban untuk mengubah, lalu tekan Simpan.")
-        
-        # Siapkan data untuk diedit
-        df_revisi = df_all.copy()
-        df_revisi.insert(0, "Hapus", False) 
-        
-        edited_df = st.data_editor(
-            df_revisi,
-            column_config={
-                "Hapus": st.column_config.CheckboxColumn(),
-                "omzet": st.column_config.NumberColumn("Omzet (Rp)", format="Rp %d"),
-                "beban": st.column_config.NumberColumn("Beban (Rp)", format="Rp %d"),
-            },
-            disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "laba", "prive"],
-            hide_index=True,
-        )
+    st.subheader("⚙️ Edit & Hapus Transaksi")
+    st.info("Klik langsung pada angka *Omzet* atau *Beban* untuk mengubah, lalu klik Simpan.")
+    
+    # Menyiapkan tabel untuk diedit
+    df_revisi = df_all.copy()
+    df_revisi.insert(0, "Hapus", False) # Tambah kolom centang
+    
+    # Tampilan tabel yang bisa diketik
+    edited_df = st.data_editor(
+        df_revisi,
+        column_config={
+            "Hapus": st.column_config.CheckboxColumn(),
+            "omzet": st.column_config.NumberColumn("Omzet (Rp)", format="Rp %d"),
+            "beban": st.column_config.NumberColumn("Beban (Rp)", format="Rp %d"),
+        },
+        disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "laba", "prive"],
+        hide_index=True,
+    )
 
-        c_edit1, c_edit2 = st.columns(2)
-        
-        with c_edit1:
-            if st.button("💾 SIMPAN PERUBAHAN"):
+    c_edit1, c_edit2 = st.columns(2)
+    
+    with c_edit1:
+        if st.button("💾 SIMPAN PERUBAHAN ANGKA"):
+            # Proses update data yang berubah
+            cur = conn.cursor()
+            for index, row in edited_df.iterrows():
+                # Hitung ulang otomatis laba & prive berdasarkan angka baru
+                n_laba = row['omzet'] * (margin_pct/100) - row['beban']
+                n_prive = n_laba * (prive_pct/100)
+                
+                cur.execute("""
+                    UPDATE transaksi SET omzet=?, beban=?, laba=?, prive=? WHERE id=?
+                """, (row['omzet'], row['beban'], n_laba, n_prive, row['id']))
+            conn.commit()
+            st.success("✅ Angka berhasil diperbarui!")
+            st.rerun()
+
+    with c_edit2:
+        to_delete = edited_df[edited_df["Hapus"] == True]
+        if not to_delete.empty:
+            if st.button(f"🗑️ HAPUS {len(to_delete)} DATA"):
                 cur = conn.cursor()
-                for index, row in edited_df.iterrows():
-                    # Hitung ulang laba & prive berdasarkan angka baru
-                    n_laba = row['omzet'] * (margin_pct/100) - row['beban']
-                    n_prive = n_laba * (prive_pct/100)
-                    cur.execute("UPDATE transaksi SET omzet=?, beban=?, laba=?, prive=? WHERE id=?", 
-                               (row['omzet'], row['beban'], n_laba, n_prive, row['id']))
+                cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in to_delete['id']])
                 conn.commit()
-                st.success("✅ Berhasil diperbarui!")
                 st.rerun()
-
-        with c_edit2:
-            to_delete = edited_df[edited_df["Hapus"] == True]
-            if not to_delete.empty:
-                if st.button(f"🗑️ HAPUS {len(to_delete)} DATA"):
-                    cur = conn.cursor()
-                    cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in to_delete['id']])
-                    conn.commit()
-                    st.rerun()
-
-# --- PENUTUP (WAJIB SEJAJAR DENGAN 'if not df_all.empty:') ---
-else:
-    st.write("---")
-    st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
