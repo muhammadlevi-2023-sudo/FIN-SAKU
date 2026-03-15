@@ -373,6 +373,7 @@ with tab2:
 
             st.success("💡 **TIPS DARI KONSULTAN:** Bawa dokumen asli dan fotokopi sebanyak 2 rangkap saat ke Mantri BRI (Petugas KUR).")
 
+# Perbaikan Tab 3
     with tab3:
         st.subheader("⚙️ Edit & Hapus Transaksi")
         st.info("Klik langsung pada angka **Omzet** atau **Beban** untuk mengubah, lalu klik Simpan.")
@@ -414,12 +415,10 @@ with tab2:
                     cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in to_delete['id']])
                     conn.commit()
                     st.rerun()
+            else:
+                st.caption("Ceklis kolom 'Hapus' untuk menghapus data.")
 
-# TANDA ELSE INI SEJAJAR DENGAN 'if not df_all.empty:'
+# --- PENUTUP UTAMA (Sejajar dengan 'if not df_all.empty:') ---
 else:
     st.write("---")
-    st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
-            st.rerun()
-    else:
-        st.write("---")
-        st.caption("Gunakan tabel di atas untuk memantau kembali catatan yang sudah masuk.")
+    st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan keuangan Anda.")
