@@ -247,7 +247,7 @@ if not df_all.empty:
                 mime="application/pdf"
             )
 
-with tab2:
+    with tab2:
         st.subheader("🏦 Konsultasi Strategis KUR")
         
         jml_bln = df_all['bulan'].nunique()
@@ -415,9 +415,9 @@ with tab2:
                     conn.commit()
                     st.rerun()
 
-else:
-    st.write("---")
-    st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
+# --- BAGIAN KRUSIAL ---
+# Pastikan 'else:' di bawah ini TIDAK memiliki spasi di depannya (mentok kiri)
+# agar sejajar dengan 'if not df_all.empty:' di baris 160-an
 else:
     st.write("---")
     st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
