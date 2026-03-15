@@ -263,7 +263,14 @@ if not df_all.empty:
             with c1: st.markdown(f"<div class='report-card'><b>Pinjaman</b><h3>{format_rp(plafon_rek)}</h3></div>", unsafe_allow_html=True)
             with c2: st.markdown(f"<div class='report-card'><b>Cicilan</b><h3>{format_rp(total_cicilan)}</h3></div>", unsafe_allow_html=True)
             with c3: st.markdown(f"<div class='report-card'><b>Kesehatan Kas</b><h3>{rasio_sisa:.0f}%</h3></div>", unsafe_allow_html=True)
-
+ 
+            # 7. BERKAS UNTUK DIBAWA
+            st.write("---")
+            st.markdown("### 📋 Persiapan Dokumen")
+            with st.expander("1. 🪪 Identitas Diri (KTP & KK)"): st.write("Wajib untuk cek SLIK OJK.")
+            with st.expander("2. 📜 Legalitas Usaha (NIB / SKU)"): st.write("Buktikan usaha bukan fiktif.")
+            with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)"): st.write("Gunakan PDF yang di-download di Tab 1.")
+    
     with tab3:
         st.subheader("⚙️ Edit & Hapus Transaksi")
         st.info("Klik pada angka Omzet/Beban untuk edit, lalu klik Simpan.")
@@ -287,75 +294,5 @@ if not df_all.empty:
             if not to_del.empty and st.button(f"🗑️ HAPUS {len(to_del)} DATA"):
                 cur = conn.cursor()
                 cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in to_del['id']])
-                conn.commit()
-                st.rerun()
-
-    # 7. BERKAS UNTUK DIBAWA
-    st.write("---")
-    st.markdown("### 📋 Persiapan Dokumen")
-    with st.expander("1. 🪪 Identitas Diri (KTP & KK)"): st.write("Wajib untuk cek SLIK OJK.")
-    with st.expander("2. 📜 Legalitas Usaha (NIB / SKU)"): st.write("Buktikan usaha bukan fiktif.")
-    with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)"): st.write("Gunakan PDF yang di-download di Tab 1.")
-
-# ... (ini sambungan dari bagian Tab 2 sebelumnya) ...
-
-    with tab3:
-        st.subheader("⚙️ Edit & Hapus Transaksi")
-        st.info("Klik langsung pada angka **Omzet** atau **Beban** untuk mengubah, lalu klik Simpan.")
-        
-        # Menyiapkan tabel untuk diedit
-        df_revisi = df_all.copy()
-        df_revisi.insert(0, "Hapus", False) 
-        
-        edited_df = st.data_editor(
-            df_revisi,
-            column_config={
-                "Hapus": st.column_config.CheckboxColumn(),
-                "omzet": st.column_config.NumberColumn("Omzet (Rp)", format="Rp %d"),
-                "beban": st.column_config.NumberColumn("Beban (Rp)", format="Rp %d"),
-            },
-            disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "laba", "prive"],
-            hide_index=True,
-        )
-
-        c_edit1, c_edit2 = st.columns(2)
-        
-        with c_edit1:
-            if st.button("💾 SIMPAN PERUBAHAN ANGKA"):
-                cur = conn.cursor()
-                for index, row in edited_df.iterrows():
-                    n_laba = row['omzet'] * (margin_pct/100) - row['beban']
-                    n_prive = n_laba * (prive_pct/100)
-                    cur.execute("UPDATE transaksi SET omzet=?, beban=?, laba=?, prive=? WHERE id=?", 
-                               (row['omzet'], row['beban'], n_laba, n_prive, row['id']))
-                conn.commit()
-                st.success("✅ Angka berhasil diperbarui!")
-                st.rerun()
-
-        with c_edit2:
-            to_delete = edited_df[edited_df["Hapus"] == True]
-            if not to_delete.empty:
-                if st.button(f"🗑️ HAPUS {len(to_delete)} DATA"):
-                    cur = conn.cursor()
-                    cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in to_delete['id']])
-                    conn.commit()
-                    st.rerun()
-
-    # 7. BERKAS UNTUK DIBAWA (Bagian ini juga harus menjorok ke dalam)
-    st.write("---")
-    st.markdown("### 📋 Persiapan Dokumen (Lolos Verifikasi Bank)")
-    with st.expander("1. 🪪 Identitas Diri (KTP & KK)"):
-        st.write("Wajib untuk cek SLIK OJK.")
-    with st.expander("2. 📜 Legalitas Usaha (NIB / SKU)"):
-        st.write("Buktikan usaha Anda bukan fiktif.")
-    with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)"):
-        st.write("Gunakan PDF yang di-download di Tab 1.")
-
-# TANDA ELSE INI SEJAJAR DENGAN 'if not df_all.empty:'
-else:
-    st.write("---")
-    st.info("👋 Selamat datang! Silakan masukkan data transaksi di atas untuk melihat laporan.")
-                cur = conn.cursor()
-                cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in to_delete['id']])
                 conn.commit()
                 st.rerun()
