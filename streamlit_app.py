@@ -417,16 +417,6 @@ with tab2:
                     conn.commit()
                     st.rerun()
 
-    # 7. BERKAS UNTUK DIBAWA (Bagian ini juga harus menjorok ke dalam)
-    st.write("---")
-    st.markdown("### 📋 Persiapan Dokumen (Lolos Verifikasi Bank)")
-    with st.expander("1. 🪪 Identitas Diri (KTP & KK)"):
-        st.write("Wajib untuk cek SLIK OJK.")
-    with st.expander("2. 📜 Legalitas Usaha (NIB / SKU)"):
-        st.write("Buktikan usaha Anda bukan fiktif.")
-    with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)"):
-        st.write("Gunakan PDF yang di-download di Tab 1.")
-
 # TANDA ELSE INI SEJAJAR DENGAN 'if not df_all.empty:'
 else:
     st.write("---")
