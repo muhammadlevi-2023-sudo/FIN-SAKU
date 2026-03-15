@@ -199,12 +199,10 @@ if not df_all.empty:
         </div>
         """, unsafe_allow_html=True)
 
-        # --- LOGIKA PEMBUATAN PDF (Persis Format Gambar) ---
+        # --- LOGIKA PEMBUATAN PDF ---
         if st.button("📥 DOWNLOAD LAPORAN PDF"):
             pdf = FPDF()
             pdf.add_page()
-            
-            # Header Laporan
             pdf.set_font("Arial", 'B', 14)
             pdf.cell(190, 7, nama_u.upper(), 0, 1, 'C')
             pdf.set_font("Arial", 'B', 10)
@@ -213,8 +211,6 @@ if not df_all.empty:
             pdf.cell(190, 7, f"Periode: {sel_lap} {sel_thn}", 0, 1, 'C')
             pdf.line(10, 35, 200, 35)
             pdf.ln(10)
-            
-            # Bagian I: Laba Rugi
             pdf.set_font("Arial", 'B', 11)
             pdf.cell(190, 10, "I. LAPORAN LABA RUGI", 0, 1, 'L')
             pdf.set_font("Arial", '', 10)
@@ -225,8 +221,6 @@ if not df_all.empty:
             pdf.set_font("Arial", 'B', 10)
             pdf.cell(100, 10, "LABA BERSIH OPERASIONAL", 0, 0); pdf.cell(90, 10, format_rp(l_operasional), 0, 1, 'R')
             pdf.ln(5)
-            
-            # Bagian II: Perubahan Modal
             pdf.set_font("Arial", 'B', 11)
             pdf.cell(190, 10, "II. LAPORAN PERUBAHAN MODAL", 0, 1, 'L')
             pdf.set_font("Arial", '', 10)
@@ -236,145 +230,72 @@ if not df_all.empty:
             pdf.line(110, pdf.get_y(), 200, pdf.get_y())
             pdf.set_font("Arial", 'B', 10)
             pdf.cell(100, 10, "MODAL AKHIR PERIODE", 0, 0); pdf.cell(90, 10, format_rp(modal_akhir_periode), 0, 1, 'R')
-            
-            # Footer kecil
             pdf.ln(20)
             pdf.set_font("Arial", 'I', 8)
             pdf.cell(190, 10, f"Dicetak otomatis melalui FIN-Saku pada {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'C')
-            
-            # Output ke Streamlit Download
-            st.download_button(
-                label="Klik untuk Simpan PDF",
-                data=pdf.output(dest='S').encode('latin-1'),
-                file_name=f"Laporan_{sel_lap}_{nama_u}.pdf",
-                mime="application/pdf"
-            )
+            st.download_button(label="Klik untuk Simpan PDF", data=pdf.output(dest='S').encode('latin-1'), file_name=f"Laporan_{sel_lap}_{nama_u}.pdf", mime="application/pdf")
 
-with tab2:
+    with tab2:
         st.subheader("🏦 Konsultasi Strategis KUR")
-        
         jml_bln = df_all['bulan'].nunique()
-        
         if jml_bln < 3:
             st.error(f"### 🚩 ANALISIS TERKUNCI (Data baru {jml_bln}/3 Bulan)")
             st.info("Bank BRI biasanya melihat riwayat minimal 3-6 bulan. Yuk, rutin catat transaksi Anda!")
         else:
             avg_laba = (df_all['laba'].sum() - df_all['prive'].sum()) / jml_bln
             laba_bulan_ini = df_curr['laba'].sum() - df_curr['prive'].sum()
-            tren_status = "Meningkat 📈" if laba_bulan_ini > avg_laba else "Menurun/Stabil 📉"
-            
-            if avg_laba > 5000000:
-                produk, plafon_rek = "KUR Mikro BRI", 50000000
-            else:
-                produk, plafon_rek = "KUR Super Mikro BRI", 10000000
+            if avg_laba > 5000000: produk, plafon_rek = "KUR Mikro BRI", 50000000
+            else: produk, plafon_rek = "KUR Super Mikro BRI", 10000000
 
-            # --- NARASI PEMBUKA ---
             st.markdown(f"""
             <div style="background: white; padding: 20px; border-radius: 12px; border-left: 5px solid #FFD700; margin-bottom: 20px;">
                 <h3 style="color:#002147; margin-top:0;">💡 Halo Pemilik {nama_u},</h3>
-                <p style="color:#333; line-height:1.6;">
-                    Kami telah menganalisis catatan keuangan Anda selama <b>{jml_bln} bulan</b>. 
-                    Saat ini, keuntungan bersih rata-rata Anda adalah <b>{format_rp(avg_laba)}/bulan</b>. 
-                    Berdasarkan angka ini, berikut adalah simulasi cicilan yang <b>paling aman</b> agar usaha Anda tetap bisa jajan dan bayar operasional tanpa pusing.
-                </p>
+                <p style="color:#333; line-height:1.6;">Kami telah menganalisis catatan keuangan Anda selama <b>{jml_bln} bulan</b>. Keuntungan rata-rata: <b>{format_rp(avg_laba)}/bulan</b>.</p>
             </div>
             """, unsafe_allow_html=True)
 
             tenor = st.select_slider("Pilih Jangka Waktu Pinjaman (Bulan):", options=[12, 18, 24, 36], value=12)
-            
-            # Hitung Logika KUR
-            pokok_bln = plafon_rek / tenor
-            bunga_bln = (plafon_rek * 0.06) / 12  # Bunga KUR 6% setahun
-            total_cicilan = pokok_bln + bunga_bln
+            total_cicilan = (plafon_rek / tenor) + ((plafon_rek * 0.06) / 12)
             batas_aman = avg_laba * 0.35
-            sisa_laba_akhir = avg_laba - total_cicilan
-            rasio_sisa = (sisa_laba_akhir / avg_laba) * 100
+            rasio_sisa = ((avg_laba - total_cicilan) / avg_laba) * 100
 
-            # --- 3 KARTU DENGAN PENJELASAN SEDERHANA ---
             c1, c2, c3 = st.columns(3)
-            
-            with c1:
-                st.markdown(f"""
-                <div class="report-card">
-                    <b>1. Pinjaman Rekomendasi</b><br>
-                    <h3 style="margin:5px 0;">{format_rp(plafon_rek)}</h3>
-                    <small>Pinjaman ini disesuaikan agar Anda tidak keberatan membayar tiap bulannya.</small>
-                </div>
-                """, unsafe_allow_html=True)
+            with c1: st.markdown(f"<div class='report-card'><b>Pinjaman</b><h3>{format_rp(plafon_rek)}</h3></div>", unsafe_allow_html=True)
+            with c2: st.markdown(f"<div class='report-card'><b>Cicilan</b><h3>{format_rp(total_cicilan)}</h3></div>", unsafe_allow_html=True)
+            with c3: st.markdown(f"<div class='report-card'><b>Kesehatan Kas</b><h3>{rasio_sisa:.0f}%</h3></div>", unsafe_allow_html=True)
 
-            with c2:
-                warna_c = '#155724' if total_cicilan <= batas_aman else '#721c24'
-                st.markdown(f"""
-                <div class="report-card">
-                    <b>2. Cicilan per Bulan</b><br>
-                    <h3 style="margin:5px 0; color:{warna_c} !important;">{format_rp(total_cicilan)}</h3>
-                    <small>Idealnya, cicilan tidak boleh lebih dari 35% keuntungan bersih Anda.</small>
-                </div>
-                """, unsafe_allow_html=True)
+    with tab3:
+        st.subheader("⚙️ Edit & Hapus Transaksi")
+        st.info("Klik pada angka Omzet/Beban untuk edit, lalu klik Simpan.")
+        df_revisi = df_all.copy()
+        df_revisi.insert(0, "Hapus", False)
+        edited_df = st.data_editor(df_revisi, column_config={"Hapus": st.column_config.CheckboxColumn(), "omzet": st.column_config.NumberColumn("Omzet", format="Rp %d"), "beban": st.column_config.NumberColumn("Beban", format="Rp %d")}, disabled=["id", "tgl_data", "bulan", "tahun", "tipe_input", "laba", "prive"], hide_index=True)
 
-            with c3:
-                warna_s = '#155724' if rasio_sisa >= 70 else '#856404'
-                st.markdown(f"""
-                <div class="report-card">
-                    <b>3. Kesehatan Kas (Sisa Laba)</b><br>
-                    <h3 style="margin:5px 0; color:{warna_s} !important;">{rasio_sisa:.0f}%</h3>
-                    <small>Setelah bayar bank, Anda masih punya {rasio_sisa:.0f}% uang untuk diputar lagi.</small>
-                </div>
-                """, unsafe_allow_html=True)
+        col_e1, col_e2 = st.columns(2)
+        with col_e1:
+            if st.button("💾 SIMPAN PERUBAHAN ANGKA"):
+                cur = conn.cursor()
+                for index, row in edited_df.iterrows():
+                    n_laba = row['omzet'] * (margin_pct/100) - row['beban']
+                    n_prive = n_laba * (prive_pct/100)
+                    cur.execute("UPDATE transaksi SET omzet=?, beban=?, laba=?, prive=? WHERE id=?", (row['omzet'], row['beban'], n_laba, n_prive, row['id']))
+                conn.commit()
+                st.success("Berhasil Update!")
+                st.rerun()
+        with col_e2:
+            to_del = edited_df[edited_df["Hapus"] == True]
+            if not to_del.empty and st.button(f"🗑️ HAPUS {len(to_del)} DATA"):
+                cur = conn.cursor()
+                cur.executemany("DELETE FROM transaksi WHERE id=?", [(i,) for i in to_del['id']])
+                conn.commit()
+                st.rerun()
 
-            # --- EDUKASI CARA BACA ---
-            with st.expander("🔍 Bagaimana cara kami menghitung ini? (Klik untuk baca)"):
-                st.write(f"""
-                1. **Cicilan Aman**: Bank biasanya menyarankan cicilan Anda maksimal **{format_rp(batas_aman)}**. Cicilan pilihan Anda adalah **{format_rp(total_cicilan)}**.
-                2. **Kesehatan Kas**: Jika angkanya di atas **70%**, artinya setelah bayar cicilan, uang Anda masih 'longgar' untuk stok barang atau biaya darurat.
-                3. **Bunga Murah**: Simulasi ini menggunakan bunga KUR **6% per tahun** karena Anda sudah tertib mencatat keuangan di aplikasi ini.
-                """)
-
-            # --- KESIMPULAN AKHIR ---
-            if rasio_sisa >= 70:
-                st.success(f"✅ **KATA KONSULTAN:** Usaha Anda SANGAT SEHAT. Sisa uang {rasio_sisa:.0f}% sangat cukup untuk tabungan pribadi dan modal kerja.")
-            elif rasio_sisa >= 50:
-                st.warning(f"⚠️ **KATA KONSULTAN:** CUKUP AMAN, tapi disarankan ambil jangka waktu lebih lama (tenor panjang) agar cicilan per bulannya lebih ringan.")
-            else:
-                st.error("🚨 **KATA KONSULTAN:** TERLALU BERAT. Cicilan ini akan menghabiskan banyak keuntungan Anda. Coba kecilkan jumlah pinjaman.")
-
-# 7. BERKAS UNTUK DIBAWA (Edukasi Lengkap)
-            st.write("---")
-            st.markdown("### 📋 Persiapan Dokumen (Lolos Verifikasi Bank)")
-            st.write("Jangan cuma bawa badan! Bank butuh bukti hitam di atas putih untuk percaya pada Anda.")
-
-            # Menggunakan Expander agar rapi tapi detail
-            with st.expander("1. 🪪 Identitas Diri (KTP & KK)", expanded=False):
-                col_i1, col_i2 = st.columns([1, 2])
-                with col_i1:
-                    st.info("**Tujuan:** Memastikan Anda warga asli & punya domisili tetap.")
-                with col_i2:
-                    st.write("""
-                    * **Kenapa Perlu?** Bank harus lapor ke sistem OJK (SLIK) menggunakan NIK Anda untuk cek riwayat kredit (pernah nunggak atau tidak).
-                    * **Cara Dapet:** Pastikan KTP sudah elektronik (E-KTP) dan data di KK sudah update di Dukcapil.
-                    """)
-
-            with st.expander("2. 📜 Legalitas Usaha (NIB / SKU)", expanded=False):
-                col_l1, col_l2 = st.columns([1, 2])
-                with col_l1:
-                    st.info("**Tujuan:** Membuktikan usaha Anda 'Legal' dan bukan usaha fiktif.")
-                with col_l2:
-                    st.write("""
-                    * **Kenapa Perlu?** Syarat wajib KUR adalah usaha sudah berjalan minimal 6 bulan. Dokumen ini adalah "Akte Kelahiran" bisnis Anda.
-                    * **Cara Dapet:** **NIB (Nomor Induk Berusaha)** bisa didapatkan melalui daftar secara mandiri di situs **oss.go.id** (Gratis & cuma 10 menit) dan untuk **SKU (Surat Keterangan Usaha)** bisa  dibuatkan surat tersebut melalui Kantor Kelurahan/Desa dengan membawa surat pengantar dari RT/RW.
-                    """)
-
-            with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)", expanded=True):
-                col_k1, col_k2 = st.columns([1, 2])
-                with col_k1:
-                    st.info("**Tujuan:** Menyakinkan Bank bahwa Anda mampu membayar cicilan.")
-                with col_k2:
-                    st.write("""
-                    * **Kenapa Perlu?** Bank tidak mau nebak-nebak. Dengan laporan rapi dari aplikasi ini, Bank melihat Anda sebagai 'Pengusaha Profesional' yang mengerti keuangan.
-                    * **Cara Dapet:** Klik tombol **'DOWNLOAD LAPORAN PDF'** di Tab Laporan Keuangan, lalu cetak (print) di kertas A4.
-                    """)
-
-            st.success("💡 **TIPS DARI KONSULTAN:** Bawa dokumen asli dan fotokopi sebanyak 2 rangkap saat ke Mantri BRI (Petugas KUR).")
+    # 7. BERKAS UNTUK DIBAWA
+    st.write("---")
+    st.markdown("### 📋 Persiapan Dokumen")
+    with st.expander("1. 🪪 Identitas Diri (KTP & KK)"): st.write("Wajib untuk cek SLIK OJK.")
+    with st.expander("2. 📜 Legalitas Usaha (NIB / SKU)"): st.write("Buktikan usaha bukan fiktif.")
+    with st.expander("3. 📈 Laporan Keuangan (PDF FIN-Saku)"): st.write("Gunakan PDF yang di-download di Tab 1.")
 
 with tab3:
     st.subheader("⚙️ Edit & Hapus Transaksi")
